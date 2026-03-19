@@ -36,9 +36,16 @@ app.post("/login", (req, res) => {
       if (err) return res.status(500).send(err);
 
       if (result.length > 0) {
-        res.send({ success: true });
+        const usuario = result[0];
+        res.send({
+          success: true,
+          user: {
+            nome: usuario.nome,
+            email: usuario.email
+          }
+        });
       } else {
-        res.send({ success: false });
+        res.send({ success: false, message: "Usuário ou senha incorretos" });
       }
     }
   );
@@ -70,6 +77,6 @@ app.get("/infracoes", (req, res) => {
   });
 });
 
-app.listen(3000, () => {
+app.listen(3000,'0.0.0.0', () => {
   console.log("Servidor rodando na porta 3000");
 });

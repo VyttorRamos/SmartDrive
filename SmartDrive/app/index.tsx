@@ -15,7 +15,7 @@ export default function Login() {
 
   async function handleLogin() {
     try {
-      const response = await fetch("http://192.168.56.1:3000/login", {
+      const response = await fetch("http://192.168.1.198:3000/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -29,7 +29,6 @@ export default function Login() {
       const data = await response.json();
 
       if (data.success) {
-        // salvar usuario
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
 
         // redirecionar
@@ -129,13 +128,14 @@ const styles = StyleSheet.create({
   },
   titulo: {
     fontSize: 28,
-    color: "#fff",
+    color: "#D9FF00",
     fontWeight: "bold",
     textAlign: "left",
   },
   subtitulo: {
-    color: "#94a3b8",
-    fontSize: 16,
+    color: "#fff",
+    fontSize: 28,
+    fontWeight: "bold",
     marginBottom: 105,
     textAlign: "left",
   },
@@ -163,7 +163,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   botao: {
-    backgroundColor: "#ffffff",
+    backgroundColor: "#D9FF00",
     padding: 16,
     borderRadius: 25,
     alignItems: "center",

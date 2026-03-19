@@ -31,7 +31,7 @@ export default function Layout() {
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#000000" }}>
-        <ActivityIndicator size="large" color="#b6ed36" />
+        <ActivityIndicator size="large" color="#D9FF00" />
         <Text style={{ color: "#fff", marginTop: 10 }}>Carregando...</Text>
       </View>
     );
