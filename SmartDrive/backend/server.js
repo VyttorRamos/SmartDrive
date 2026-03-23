@@ -166,11 +166,48 @@ app.get("/infracoes", (req, res) => {
     LEFT JOIN veiculos v ON i.veiculo_id = v.id
     ORDER BY i.data_hora DESC
   `;
-  
+
   db.query("SELECT * FROM infracoes", (err, result) => {
     if (err) return res.status(500).send(err);
 
     res.send(result);
+  });
+});
+
+//alterar a senha
+app.put("/usuarios/:id/senha", (req, res) => {
+  const { id } = req.params;
+  const { senhaAtual, novaSenha } = req.body;
+
+  //verifica se a senha atual está correta
+  db.query("SELECT senha FROM usuarios WHERE id = ?", [id], (err, results) => {
+    if (err) return res.status(500).send({ success: false, message: "Erro no servidor" });
+    if (results.length === 0) return res.status(404).send({ success: false, message: "Usuário não encontrado" });
+
+    const senhaBanco = results[0].senha;
+    if (senhaBanco !== senhaAtual) {
+      return res.status(400).send({ success: false, message: "A senha atual está incorreta." });
+    }
+
+    // se a senha atual for igual a do banco ele salva a nova
+    db.query("UPDATE usuarios SET senha = ? WHERE id = ?", [novaSenha, id], (err, updateResult) => {
+      if (err) return res.status(500).send({ success: false, message: "Erro ao atualizar senha" });
+      res.send({ success: true, message: "Senha atualizada com sucesso" });
+    });
+  });
+});
+
+//salvar preferencias de notificação
+app.put("/usuarios/:id/notificacoes", (req, res) => {
+  const { id } = req.params;
+  const { push, email } = req.body;
+
+ //coalesce serve para que se só um for enviado ele continua com o que já estava no outro
+  const query = "UPDATE usuarios SET notificacao_push = COALESCE(?, notificacao_push), notificacao_email = COALESCE(?, notificacao_email) WHERE id = ?";
+
+  db.query(query, [push, email, id], (err, result) => {
+    if (err) return res.status(500).send({ success: false, message: "Erro ao salvar preferências" });
+    res.send({ success: true });
   });
 });
 

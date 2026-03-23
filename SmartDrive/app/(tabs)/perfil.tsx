@@ -7,14 +7,14 @@ import { User, ChevronRight } from 'lucide-react-native';
 
 export default function Perfil() {
     const [userData, setUserData] = useState({ id: '', nome: '', cpf: '', telefone: '', email: '', tipo: '' });
-    
+
     const [modalVisible, setModalVisible] = useState(false);
     const [campoEditando, setCampoEditando] = useState('');
     const [valorTemporario, setValorTemporario] = useState('');
 
     const [configModalVisible, setConfigModalVisible] = useState(false);
     const [configTipo, setConfigTipo] = useState('');
-    
+
     const [notificacaoPush, setNotificacaoPush] = useState(true);
     const [notificacaoEmail, setNotificacaoEmail] = useState(true);
     const [senhaAtual, setSenhaAtual] = useState('');
@@ -89,15 +89,7 @@ export default function Perfil() {
         }
     }
 
-    async function toggleNotificacaoPush(valor: boolean) {
-        setNotificacaoPush(valor);
-        await AsyncStorage.setItem('notif_push', String(valor));
-    }
-
-    async function toggleNotificacaoEmail(valor: boolean) {
-        setNotificacaoEmail(valor);
-        await AsyncStorage.setItem('notif_email', String(valor));
-    }
+    // --- FUNÇÕES REAIS DE SEGURANÇA E NOTIFICAÇÃO ---
 
     async function alterarSenha() {
         if (!senhaAtual || !novaSenha) {
@@ -105,26 +97,50 @@ export default function Perfil() {
             return;
         }
 
-        // Exemplo de requisição para alterar a senha
         try {
-            /* Descomente e ajuste a rota abaixo de acordo com seu backend:
-            
             const response = await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}/senha`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ senhaAtual, novaSenha }),
             });
             const result = await response.json();
-            if (result.success) { ... }
-            */
 
-            setConfigModalVisible(false);
-            setSenhaAtual('');
-            setNovaSenha('');
-            mostrarAviso("Sucesso", "Sua senha foi atualizada com segurança.");
+            if (result.success) {
+                setConfigModalVisible(false);
+                setSenhaAtual('');
+                setNovaSenha('');
+                mostrarAviso("Sucesso", "Sua senha foi atualizada com segurança.");
+            } else {
+                // Mostra o erro que veio lá do backend (ex: Senha atual incorreta)
+                mostrarAviso("Erro", result.message || "Não foi possível alterar a senha.");
+            }
         } catch (error) {
-            mostrarAviso("Erro", "Não foi possível alterar a senha no momento.");
+            mostrarAviso("Erro de Conexão", "Não foi possível conectar ao servidor.");
         }
+    }
+
+    async function atualizarPreferenciaBanco(tipo: 'push' | 'email', valor: boolean) {
+        try {
+            await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}/notificacoes`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(tipo === 'push' ? { push: valor } : { email: valor }),
+            });
+        } catch (error) {
+            console.log("Erro ao salvar notificação no banco", error);
+        }
+    }
+
+    async function toggleNotificacaoPush(valor: boolean) {
+        setNotificacaoPush(valor);
+        await AsyncStorage.setItem('notif_push', String(valor));
+        await atualizarPreferenciaBanco('push', valor);
+    }
+
+    async function toggleNotificacaoEmail(valor: boolean) {
+        setNotificacaoEmail(valor);
+        await AsyncStorage.setItem('notif_email', String(valor));
+        await atualizarPreferenciaBanco('email', valor);
     }
 
     const renderConfigContent = () => {
@@ -134,7 +150,7 @@ export default function Perfil() {
                     <View style={styles.configContentBox}>
                         <View style={styles.switchRow}>
                             <Text style={styles.switchText}>Notificações Push (Celular)</Text>
-                            <Switch 
+                            <Switch
                                 trackColor={{ false: "#333", true: "#6b7200" }}
                                 thumbColor={notificacaoPush ? "#D9FF00" : "#888"}
                                 onValueChange={toggleNotificacaoPush}
@@ -144,7 +160,7 @@ export default function Perfil() {
                         <View style={styles.divider} />
                         <View style={styles.switchRow}>
                             <Text style={styles.switchText}>Avisos por E-mail</Text>
-                            <Switch 
+                            <Switch
                                 trackColor={{ false: "#333", true: "#6b7200" }}
                                 thumbColor={notificacaoEmail ? "#D9FF00" : "#888"}
                                 onValueChange={toggleNotificacaoEmail}
@@ -214,7 +230,7 @@ export default function Perfil() {
         <View style={styles.screen}>
             <Header />
             <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-                
+
                 <View style={styles.profileHeader}>
                     <View style={styles.iconContainer}>
                         <User size={40} color="#000" />
@@ -296,7 +312,7 @@ export default function Perfil() {
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <Text style={styles.modalTitle}>Editar {campoEditando.toUpperCase()}</Text>
-                        
+
                         <TextInput
                             style={styles.inputModal}
                             value={valorTemporario}
@@ -326,7 +342,7 @@ export default function Perfil() {
                             {configTipo === 'privacidade' && 'Privacidade'}
                             {configTipo === 'ajuda' && 'Ajuda e Suporte'}
                         </Text>
-                        
+
                         {renderConfigContent()}
                     </View>
                 </View>

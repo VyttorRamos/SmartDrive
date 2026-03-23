@@ -61,5 +61,8 @@ CREATE TABLE infracoes (
     FOREIGN KEY (registro_id) REFERENCES registros(id),
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
     FOREIGN KEY (veiculo_id) REFERENCES veiculos(id)
-);
+);-- Alter table na usuarios par anotificaçãoptimize
+USE smartdrive;
+ALTER TABLE usuarios ADD COLUMN notificacao_push BOOLEAN DEFAULT TRUE;
+ALTER TABLE usuarios ADD COLUMN notificacao_email BOOLEAN DEFAULT TRUE;
 
