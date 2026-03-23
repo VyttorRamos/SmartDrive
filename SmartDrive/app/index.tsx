@@ -29,7 +29,10 @@ export default function Login() {
       const data = await response.json();
 
       if (data.success) {
+        // salva usuário e token
         await AsyncStorage.setItem('user', JSON.stringify(data.user));
+        await AsyncStorage.setItem('accessToken', data.accessToken);
+        await AsyncStorage.setItem('refreshToken', data.refreshToken);
 
         // redirecionar
         router.replace("/home");
@@ -123,7 +126,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    justifyContent: "center", 
+    justifyContent: "center",
     marginTop: -60,
   },
   titulo: {

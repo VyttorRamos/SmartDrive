@@ -1,13 +1,62 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput } from "react-native";
+import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import Header from "@/components/Header";
 import { User, ChevronRight } from 'lucide-react-native';
 
 export default function Perfil() {
+    const [userData, setUserData] = useState({ id: '', nome: '', cpf: '', telefone: '', email: '', tipo: '' });
+    const [modalVisible, setModalVisible] = useState(false);
+    const [campoEditando, setCampoEditando] = useState('');
+    const [valorTemporario, setValorTemporario] = useState('');
+
+    useEffect(() => {
+        async function loadUser() {
+            const userString = await AsyncStorage.getItem('user');
+            if (userString) {
+                setUserData(JSON.parse(userString));
+            }
+        }
+        loadUser();
+    }, []);
+
     async function handleLogout() {
         await AsyncStorage.removeItem('user');
+        await AsyncStorage.removeItem('accessToken');
+        await AsyncStorage.removeItem('refreshToken');
         router.replace('/');
+    }
+
+    function abrirEdicao(campo: string, valorAtual: string) {
+        setCampoEditando(campo);
+        setValorTemporario(valorAtual || '');
+        setModalVisible(true);
+    }
+
+    async function salvarAlteracao() {
+        const dadosAtualizados = { ...userData, [campoEditando]: valorTemporario };
+
+        try {
+            const response = await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(dadosAtualizados),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setUserData(dadosAtualizados);
+                await AsyncStorage.setItem('user', JSON.stringify(dadosAtualizados));
+                setModalVisible(false);
+            } else {
+                alert("Erro ao salvar no banco.");
+            }
+        } catch (error) {
+            console.log(error);
+            alert("Erro de conexão.");
+        }
     }
 
     return (
@@ -19,43 +68,43 @@ export default function Perfil() {
                     <View style={styles.iconContainer}>
                         <User size={40} color="#000" />
                     </View>
-                    <Text style={styles.titulo}>Administrador</Text>
-                    <Text style={styles.subtitulo}>ID: 12345</Text>
+                    <Text style={styles.titulo}>{userData.nome || 'Carregando...'}</Text>
+                    <Text style={styles.subtitulo}>ID: {userData.id} | Tipo: {userData.tipo}</Text>
                 </View>
 
                 <Text style={styles.sectionTitle}>Dados Pessoais</Text>
                 <View style={styles.card}>
-                    <TouchableOpacity style={styles.row}>
+                    <TouchableOpacity style={styles.row} onPress={() => abrirEdicao('nome', userData.nome)}>
                         <View>
                             <Text style={styles.value}>Nome</Text>
-                            <Text style={styles.label}>Administrador</Text>
+                            <Text style={styles.label}>{userData.nome || 'Não informado'}</Text>
                         </View>
                         <ChevronRight color="#888" size={20} />
                     </TouchableOpacity>
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.row}>
+                    <TouchableOpacity style={styles.row} onPress={() => abrirEdicao('cpf', userData.cpf)}>
                         <View>
                             <Text style={styles.value}>CPF</Text>
-                            <Text style={styles.label}>123.456.789-00</Text>
+                            <Text style={styles.label}>{userData.cpf || 'Não informado'}</Text>
                         </View>
                         <ChevronRight color="#888" size={20} />
                     </TouchableOpacity>
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.row}>
+                    <TouchableOpacity style={styles.row} onPress={() => abrirEdicao('telefone', userData.telefone)}>
                         <View>
                             <Text style={styles.value}>Telefone</Text>
-                            <Text style={styles.label}>(12) 98765-4321</Text>
+                            <Text style={styles.label}>{userData.telefone || 'Não informado'}</Text>
                         </View>
                         <ChevronRight color="#888" size={20} />
                     </TouchableOpacity>
                     <View style={styles.divider} />
 
-                    <TouchableOpacity style={styles.row}>
+                    <TouchableOpacity style={styles.row} onPress={() => abrirEdicao('email', userData.email)}>
                         <View>
                             <Text style={styles.value}>E-mail</Text>
-                            <Text style={styles.label}>administracao@gmail.com</Text>
+                            <Text style={styles.label}>{userData.email || 'Não informado'}</Text>
                         </View>
                         <ChevronRight color="#888" size={20} />
                     </TouchableOpacity>
@@ -91,6 +140,31 @@ export default function Perfil() {
                     <Text style={styles.logoutText}>Sair da Conta</Text>
                 </TouchableOpacity>
             </ScrollView>
+
+            <Modal visible={modalVisible} transparent={true} animationType="fade">
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Editar {campoEditando.toUpperCase()}</Text>
+                        
+                        <TextInput
+                            style={styles.inputModal}
+                            value={valorTemporario}
+                            onChangeText={setValorTemporario}
+                            placeholder={`Digite seu novo ${campoEditando}`}
+                            placeholderTextColor="#888"
+                        />
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.cancelarBtn} onPress={() => setModalVisible(false)}>
+                                <Text style={styles.cancelarText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.salvarBtn} onPress={salvarAlteracao}>
+                                <Text style={styles.salvarText}>Salvar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -103,7 +177,7 @@ const styles = StyleSheet.create({
     container: {
         padding: 20,
         alignItems: 'stretch',
-        paddingBottom: 100, 
+        paddingBottom: 100,
         paddingTop: 40,
     },
     profileHeader: {
@@ -180,4 +254,54 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         color: '#000',
     },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '85%',
+        backgroundColor: '#1e1e1e',
+        padding: 20,
+        borderRadius: 20,
+    },
+    modalTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        textAlign: 'center',
+    },
+    inputModal: {
+        backgroundColor: '#000',
+        color: '#fff',
+        padding: 15,
+        borderRadius: 10,
+        marginBottom: 20,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+    },
+    cancelarBtn: {
+        padding: 15,
+        flex: 1,
+        alignItems: 'center',
+    },
+    cancelarText: {
+        color: '#888',
+        fontWeight: 'bold',
+    },
+    salvarBtn: {
+        backgroundColor: '#D9FF00',
+        padding: 15,
+        borderRadius: 10,
+        flex: 1,
+        alignItems: 'center',
+    },
+    salvarText: {
+        color: '#000',
+        fontWeight: 'bold',
+    }
 });
