@@ -42,14 +42,14 @@ app.post("/login", (req, res) => {
         const usuario = result[0];
 
         const accessToken = jwt.sign(
-          { id: usuario.id, tipo: usuario.tipo }, 
-          JWT_SECRET, 
+          { id: usuario.id, tipo: usuario.tipo },
+          JWT_SECRET,
           { expiresIn: '15m' }
         );
 
         const refreshToken = jwt.sign(
-          { id: usuario.id }, 
-          JWT_REFRESH_SECRET, 
+          { id: usuario.id },
+          JWT_REFRESH_SECRET,
           { expiresIn: '7d' }
         );
 
@@ -88,6 +88,38 @@ app.put("/usuarios/:id", (req, res) => {
   );
 });
 
+//busca da pagina usuarios
+app.get("/usuarios", (req, res) => {
+  const query = `
+    SELECT u.id, u.nome, u.email, u.telefone, u.cpf, u.tipo, 
+           COUNT(i.id) AS infracoes 
+    FROM usuarios u
+    LEFT JOIN infracoes i ON u.id = i.usuario_id
+    GROUP BY u.id
+    ORDER BY u.nome ASC
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.send(results);
+  });
+});
+
+//novo usuário
+app.post("/usuarios", (req, res) => {
+  const { nome, email, senha, cpf, telefone, tipo } = req.body;
+
+  db.query(
+    "INSERT INTO usuarios (nome, email, senha, cpf, telefone, tipo) VALUES (?, ?, ?, ?, ?, ?)",
+    [nome, email, senha, cpf, telefone, tipo || 'usuario'],
+    (err, result) => {
+      if (err) return res.status(500).send(err);
+      res.send({ success: true, message: "Usuário cadastrado com sucesso" });
+    }
+  );
+});
+
+//token
 app.post("/refresh", (req, res) => {
   const { refreshToken } = req.body;
 
@@ -100,8 +132,8 @@ app.post("/refresh", (req, res) => {
 
     //novo Token de 15 minutos
     const newAccessToken = jwt.sign(
-      { id: user.id }, 
-      JWT_SECRET, 
+      { id: user.id },
+      JWT_SECRET,
       { expiresIn: '15m' }
     );
 
@@ -128,6 +160,13 @@ app.post("/infracao", (req, res) => {
 
 //Lista infrações
 app.get("/infracoes", (req, res) => {
+  const query = `
+    SELECT i.id, i.usuario_id, v.placa, i.velocidade, i.status, i.data_hora 
+    FROM infracoes i
+    LEFT JOIN veiculos v ON i.veiculo_id = v.id
+    ORDER BY i.data_hora DESC
+  `;
+  
   db.query("SELECT * FROM infracoes", (err, result) => {
     if (err) return res.status(500).send(err);
 
@@ -135,6 +174,6 @@ app.get("/infracoes", (req, res) => {
   });
 });
 
-app.listen(3000,'0.0.0.0', () => {
+app.listen(3000, '0.0.0.0', () => {
   console.log("Servidor rodando na porta 3000");
 });

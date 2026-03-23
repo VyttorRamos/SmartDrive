@@ -62,3 +62,4 @@ CREATE TABLE infracoes (
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
     FOREIGN KEY (veiculo_id) REFERENCES veiculos(id)
 );
+
