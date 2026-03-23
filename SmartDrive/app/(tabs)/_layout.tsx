@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Slot } from "expo-router";
 import { View, ActivityIndicator, Text } from "react-native";
 
+
 export default function Layout() {
   const [loading, setLoading] = useState(true);
   const [logado, setLogado] = useState(false);

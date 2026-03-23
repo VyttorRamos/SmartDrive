@@ -4,6 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import Header from "@/components/Header";
 import { User, ChevronRight } from 'lucide-react-native';
+import { API_URL } from "@/constants/api";
 
 export default function Perfil() {
     const [userData, setUserData] = useState({ id: '', nome: '', cpf: '', telefone: '', email: '', tipo: '' });
@@ -67,7 +68,7 @@ export default function Perfil() {
         const dadosAtualizados = { ...userData, [campoEditando]: valorTemporario };
 
         try {
-            const response = await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}`, {
+            const response = await fetch(`${API_URL}/usuarios/${userData.id}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(dadosAtualizados),
@@ -89,8 +90,6 @@ export default function Perfil() {
         }
     }
 
-    // --- FUNÇÕES REAIS DE SEGURANÇA E NOTIFICAÇÃO ---
-
     async function alterarSenha() {
         if (!senhaAtual || !novaSenha) {
             mostrarAviso("Atenção", "Preencha a senha atual e a nova senha.");
@@ -98,7 +97,7 @@ export default function Perfil() {
         }
 
         try {
-            const response = await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}/senha`, {
+            const response = await fetch(`${API_URL}/usuarios/${userData.id}/senha`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ senhaAtual, novaSenha }),
@@ -111,7 +110,7 @@ export default function Perfil() {
                 setNovaSenha('');
                 mostrarAviso("Sucesso", "Sua senha foi atualizada com segurança.");
             } else {
-                // Mostra o erro que veio lá do backend (ex: Senha atual incorreta)
+                // erro que veio do backend
                 mostrarAviso("Erro", result.message || "Não foi possível alterar a senha.");
             }
         } catch (error) {
@@ -121,7 +120,7 @@ export default function Perfil() {
 
     async function atualizarPreferenciaBanco(tipo: 'push' | 'email', valor: boolean) {
         try {
-            await fetch(`http://192.168.1.198:3000/usuarios/${userData.id}/notificacoes`, {
+            await fetch(`${API_URL}/usuarios/${userData.id}/notificacoes`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(tipo === 'push' ? { push: valor } : { email: valor }),

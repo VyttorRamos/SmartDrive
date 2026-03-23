@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Modal, A
 import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Search } from 'lucide-react-native';
+import { API_URL } from "@/constants/api";
 
 type Usuario = {
   id: number;
@@ -43,7 +44,7 @@ export default function Usuarios() {
 
   async function fetchUsuarios() {
     try {
-      const response = await fetch("http://192.168.1.198:3000/usuarios");
+      const response = await fetch(`${API_URL}/usuarios`);
       const data = await response.json();
       setUsuarios(data);
     } catch (error) {
@@ -58,7 +59,7 @@ export default function Usuarios() {
     setModalDetalhesVisible(true);
 
     try {
-      const response = await fetch("http://192.168.1.198:3000/infracoes");
+      const response = await fetch(`${API_URL}/infracoes`);
       const data = await response.json();
       
       const filtradas = data.filter((inf: Infracao) => inf.usuario_id === usuario.id);
@@ -92,7 +93,7 @@ export default function Usuarios() {
     }
 
     try {
-      const response = await fetch("http://192.168.1.198:3000/usuarios", {
+      const response = await fetch(`${API_URL}/usuarios`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

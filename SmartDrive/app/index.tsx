@@ -1,8 +1,9 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Image } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
+import { API_URL } from "@/constants/api";
 
 export default function Login() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function Login() {
 
   async function handleLogin() {
     try {
-      const response = await fetch("http://192.168.1.198:3000/login", {
+      const response = await fetch(`${API_URL}/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -50,7 +51,11 @@ export default function Login() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titulo}>SmartDrive</Text>
+        <Image
+          source={require('../assets/images/logo_smartdrive.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
       </View>
 
       <View style={styles.content}>
@@ -129,11 +134,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: -60,
   },
-  titulo: {
-    fontSize: 28,
-    color: "#D9FF00",
-    fontWeight: "bold",
-    textAlign: "left",
+  logo: {
+    width: 200,
+    height: 80,
+    marginBottom: 10,
   },
   subtitulo: {
     color: "#fff",

@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { API_URL } from "@/constants/api";
 
 type Infracao = {
   id: number;
@@ -19,8 +20,7 @@ export default function Historico() {
   
   const [modalFiltroVisible, setModalFiltroVisible] = useState(false);
   const [dataFiltro, setDataFiltro] = useState("");
-  
-  // Estados novos para controlar o calendário
+
   const [dateObj, setDateObj] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
 
@@ -42,7 +42,7 @@ export default function Historico() {
 
   async function fetchHistorico() {
     try {
-      const response = await fetch("http://192.168.1.198:3000/infracoes");
+      const response = await fetch(`${API_URL}/infracoes`);
       const data = await response.json();
       
       setHistorico(data);

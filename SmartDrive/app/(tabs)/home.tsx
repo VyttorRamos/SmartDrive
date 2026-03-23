@@ -2,6 +2,7 @@ import { View, Text, StyleSheet, Image, ScrollView } from "react-native";
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "@/components/Header";
+import { API_URL } from "@/constants/api"; //${API_URL}
 
 export default function Home() {
   const [velocidade, setVelocidade] = useState(27);
