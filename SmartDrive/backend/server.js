@@ -33,7 +33,7 @@ app.post("/login", (req, res) => {
   const { email, senha } = req.body;
 
   db.query(
-    "SELECT * FROM usuarios WHERE email = ? AND senha = ?",
+    "SELECT * FROM usuarios WHERE email = ? AND senha = ? AND ativo = true",
     [email, senha],
     (err, result) => {
       if (err) return res.status(500).send(err);
@@ -88,10 +88,19 @@ app.put("/usuarios/:id", (req, res) => {
   );
 });
 
+//desativar usuario
+app.delete("/usuarios/:id", (req, res) => {
+  const { id } = req.params;
+  db.query("UPDATE usuarios SET ativo = 0 WHERE id = ?", [id], (err, result) => {
+    if (err) return res.status(500).send({ success: false, message: "Erro ao desativar" });
+    res.send({ success: true, message: "Usuário desativado" });
+  });
+});
+
 //busca da pagina usuarios
 app.get("/usuarios", (req, res) => {
   const query = `
-    SELECT u.id, u.nome, u.email, u.telefone, u.cpf, u.tipo, 
+    SELECT u.id, u.nome, u.email, u.telefone, u.cpf, u.tipo, u.ativo, 
            COUNT(i.id) AS infracoes 
     FROM usuarios u
     LEFT JOIN infracoes i ON u.id = i.usuario_id
@@ -202,7 +211,7 @@ app.put("/usuarios/:id/notificacoes", (req, res) => {
   const { id } = req.params;
   const { push, email } = req.body;
 
- //coalesce serve para que se só um for enviado ele continua com o que já estava no outro
+  //coalesce serve para que se só um for enviado ele continua com o que já estava no outro
   const query = "UPDATE usuarios SET notificacao_push = COALESCE(?, notificacao_push), notificacao_email = COALESCE(?, notificacao_email) WHERE id = ?";
 
   db.query(query, [push, email, id], (err, result) => {
