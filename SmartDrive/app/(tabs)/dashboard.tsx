@@ -1,9 +1,10 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Header from "@/components/Header";
 import { AlertTriangle, Activity, CarFront, BarChart3, CalendarDays } from 'lucide-react-native';
 import { API_URL } from "@/constants/api";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useFocusEffect } from '@react-navigation/native';
 
 type Infracao = {
   id: number;
@@ -24,9 +25,11 @@ export default function Dashboard() {
   const [dadosGrafico, setDadosGrafico] = useState<{ dia: string, valor: number }[]>([]);
   const [topInfratores, setTopInfratores] = useState<{ placa: string, total: number, ultimaVelocidade: number }[]>([]);
 
-  useEffect(() => {
-    fetchDadosInfracoes();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchDadosInfracoes();
+    }, [])
+  );
 
   useEffect(() => {
     if (todasInfracoes.length > 0) {

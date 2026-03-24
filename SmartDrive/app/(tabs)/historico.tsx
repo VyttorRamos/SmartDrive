@@ -1,10 +1,11 @@
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Alert, Platform } from "react-native";
-import { useState, useEffect } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Platform } from "react-native";
+import { useState, useCallback } from "react";
 import Header from "@/components/Header";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { API_URL } from "@/constants/api";
+import { useFocusEffect } from '@react-navigation/native';
 
 type Infracao = {
   id: number;
@@ -30,9 +31,11 @@ export default function Historico() {
 
   const [stats, setStats] = useState({ veiculos: 0, infracoes: 0, media: 0 });
 
-  useEffect(() => {
-    fetchHistorico();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchHistorico();
+    }, [])
+  );
 
   function mostrarAviso(titulo: string, mensagem: string) {
     setModalAvisoTitle(titulo);
@@ -112,7 +115,6 @@ export default function Historico() {
     if (selectedDate) {
       setDateObj(selectedDate);
       
-      // converte a data escolhida para o formato do filtro
       const dia = String(selectedDate.getDate()).padStart(2, '0');
       const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
       const ano = selectedDate.getFullYear();

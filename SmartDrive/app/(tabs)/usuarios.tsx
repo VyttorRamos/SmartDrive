@@ -39,12 +39,10 @@ export default function Usuarios() {
   const [infracoesDoUsuario, setInfracoesDoUsuario] = useState<Infracao[]>([]);
   const [carregandoInfracoes, setCarregandoInfracoes] = useState(false);
 
-  // Estados do Modal de Aviso Simples (Erros/Sucesso)
   const [avisoVisible, setAvisoVisible] = useState(false);
   const [avisoTitle, setAvisoTitle] = useState("");
   const [avisoMessage, setAvisoMessage] = useState("");
 
-  // Estados do Modal de Confirmação (Excluir)
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<{ id: number, nome: string } | null>(null);
 
@@ -133,13 +131,11 @@ export default function Usuarios() {
     }
   }
 
-  // Aciona o Modal Bonitinho em vez do Alert nativo
   function confirmarExclusao(id: number, nome: string) {
     setUsuarioParaExcluir({ id, nome });
     setConfirmVisible(true);
   }
 
-  // Executa a exclusão de verdade
   async function executarExclusao() {
     if (!usuarioParaExcluir) return;
 
@@ -258,7 +254,6 @@ export default function Usuarios() {
         />
       </View>
 
-      {/* MODAL DE NOVO USUÁRIO */}
       <Modal visible={modalVisible} transparent={true} animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -274,7 +269,6 @@ export default function Usuarios() {
         </View>
       </Modal>
 
-      {/* MODAL DETALHES */}
       <Modal visible={modalDetalhesVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -321,7 +315,6 @@ export default function Usuarios() {
         </View>
       </Modal>
 
-      {/* MODAL AVISO */}
       <Modal visible={avisoVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center' }]}>
@@ -334,7 +327,6 @@ export default function Usuarios() {
         </View>
       </Modal>
 
-      {/* MODAL DE CONFIRMAÇÃO DE EXCLUSÃO */}
       <Modal visible={confirmVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { alignItems: 'center' }]}>

@@ -9,6 +9,12 @@ app.use(cors());
 app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+//reconhecer imagem
+const multer = require("multer");
+const fs = require("fs");
+const axios = require("axios");
+const FormData = require("form-data");
+const upload = multer({ dest: 'uploads/' });
 
 //conexão mySQL
 const db = mysql.createConnection({
@@ -170,15 +176,21 @@ app.post("/infracao", (req, res) => {
 //Lista infrações
 app.get("/infracoes", (req, res) => {
   const query = `
-    SELECT i.id, i.usuario_id, v.placa, i.velocidade, i.status, i.data_hora 
+    SELECT 
+      i.id, 
+      i.usuario_id, 
+      COALESCE(v.placa, r.placa_detectada) AS placa, 
+      i.velocidade, 
+      i.status, 
+      i.data_hora 
     FROM infracoes i
     LEFT JOIN veiculos v ON i.veiculo_id = v.id
+    LEFT JOIN registros r ON i.registro_id = r.id
     ORDER BY i.data_hora DESC
   `;
 
-  db.query("SELECT * FROM infracoes", (err, result) => {
+  db.query(query, (err, result) => {
     if (err) return res.status(500).send(err);
-
     res.send(result);
   });
 });
@@ -218,6 +230,108 @@ app.put("/usuarios/:id/notificacoes", (req, res) => {
     if (err) return res.status(500).send({ success: false, message: "Erro ao salvar preferências" });
     res.send({ success: true });
   });
+});
+
+//reconhecimento da placa, usando IA
+app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).send({ success: false, message: "Nenhuma imagem recebida." });
+    }
+
+    const velocidadeAtual = Number(req.body.velocidade);
+    const limiteVelocidade = 20;
+
+    const formData = new FormData();
+    formData.append("upload", fs.createReadStream(req.file.path));
+
+    //token do platerecognizer
+    const TOKEN_IA = "a4193ee1900505a8d41ca6398535777a33826eb4";
+
+    const aiResponse = await axios.post(
+      "https://api.platerecognizer.com/v1/plate-reader/",
+      formData,
+      {
+        headers: {
+          ...formData.getHeaders(),
+          Authorization: `Token ${TOKEN_IA}`
+        }
+      }
+    );
+
+    fs.unlinkSync(req.file.path);
+
+    if (!aiResponse.data.results || aiResponse.data.results.length === 0) {
+      return res.status(200).send({ success: false, message: "Nenhuma placa detectada na imagem." });
+    }
+
+    const placaLida = aiResponse.data.results[0].plate.toUpperCase();
+
+    const queryBusca = `
+      SELECT v.id AS veiculo_id, v.placa, u.id AS usuario_id, u.nome 
+      FROM veiculos v 
+      JOIN usuarios u ON v.usuario_id = u.id 
+      WHERE v.placa = ? AND u.ativo = 1
+    `;
+
+    db.query(queryBusca, [placaLida], (err, results) => {
+      if (err) return res.status(500).send({ success: false, message: "Erro ao buscar no banco." });
+
+      const carroEncontrado = results.length > 0;
+      const proprietario = carroEncontrado ? results[0].nome : null;
+      const usuarioId = carroEncontrado ? results[0].usuario_id : null;
+      const veiculoId = carroEncontrado ? results[0].veiculo_id : null;
+      const statusRegistro = carroEncontrado ? "Cadastrada" : "Não Cadastrada";
+
+      if (velocidadeAtual > limiteVelocidade) {
+
+        const queryRegistro = `INSERT INTO registros (velocidade, placa_detectada) VALUES (?, ?)`;
+
+        db.query(queryRegistro, [velocidadeAtual, placaLida], (errReg, resultReg) => {
+          if (errReg) {
+            console.log("Erro ao salvar registro:", errReg);
+            return res.status(500).send({ success: false, message: "Erro ao salvar registro." });
+          }
+
+          const registroId = resultReg.insertId;
+
+          const queryInfracao = `
+            INSERT INTO infracoes (registro_id, usuario_id, veiculo_id, velocidade, limite, status) 
+            VALUES (?, ?, ?, ?, ?, 'pendente')
+          `;
+
+          db.query(queryInfracao, [registroId, usuarioId, veiculoId, velocidadeAtual, limiteVelocidade], (errInfra) => {
+            if (errInfra) console.log("Erro ao salvar infração:", errInfra);
+
+            return res.send({
+              success: true,
+              placa: placaLida,
+              status: statusRegistro,
+              proprietario: proprietario
+            });
+          });
+        });
+
+      } else {
+        return res.send({
+          success: true,
+          placa: placaLida,
+          status: statusRegistro,
+          proprietario: proprietario
+        });
+      }
+    });
+
+  } catch (error) {
+    console.error("Erro na requisição da IA:", error.message);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    if (error.response && error.response.status === 403) {
+      return res.status(403).send({ success: false, message: "Acesso negado pela IA. O Token configurado no servidor é inválido ou expirou." });
+    }
+
+    res.status(500).send({ success: false, message: "Falha ao processar a imagem." });
+  }
 });
 
 app.listen(3000, '0.0.0.0', () => {
