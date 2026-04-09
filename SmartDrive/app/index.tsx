@@ -35,8 +35,12 @@ export default function Login() {
         await AsyncStorage.setItem('accessToken', data.accessToken);
         await AsyncStorage.setItem('refreshToken', data.refreshToken);
 
-        // redirecionar
-        router.replace("/home");
+        if (data.user.tipo === 'admin') {
+          router.replace("/home");
+        } else {
+          router.replace("/dashUser"); 
+        }
+        
       } else {
         setModalMessage("Login inválido. \n Entre em contato com um superior para restaurar a senha.");
         setModalVisible(true);
