@@ -1,19 +1,18 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator } from "react-native";
-import { useEffect, useState, useRef, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, Platform } from "react-native";
+import { useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "@/components/Header";
 import { API_URL } from "@/constants/api";
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
-import * as ScreenOrientation from 'expo-screen-orientation';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function Home() {
   const [velocidade, setVelocidade] = useState(27);
   const [nome, setNome] = useState("Usuário");
-
-  const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
+  
+  //ip do arduino
+  const [ipArduino, setIpArduino] = useState("172.20.10.9");
 
   const [modalVisible, setModalVisible] = useState(false);
   const [carregandoCaptura, setCarregandoCaptura] = useState(false);
@@ -79,44 +78,40 @@ export default function Home() {
 
   const acimaLimite = velocidade > 20;
 
-  async function abrirCameraFullscreen() {
-    setModalVisible(true);
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.LANDSCAPE_LEFT);
-  }
-
-  async function fecharCameraFullscreen() {
-    setModalVisible(false);
-    await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-  }
-
   async function capturarEEnviarImagem() {
-    if (!cameraRef.current || carregandoCaptura) return;
-
+    if (carregandoCaptura) return;
     setCarregandoCaptura(true);
 
     try {
-      const foto = await cameraRef.current.takePictureAsync({ quality: 0.5 });
+      const espUrl = `http://${ipArduino}/capture`;
+      const formData = new FormData();
+      formData.append('velocidade', String(velocidade));
+
+      if (Platform.OS === 'web') {
+        const imageResponse = await fetch(espUrl);
+        const imageBlob = await imageResponse.blob();
+        formData.append('imagem', imageBlob, 'placa_arduino.jpg');
+      } 
+      else {
+        const localUri = FileSystem.cacheDirectory + 'placa_arduino.jpg';
+        const { uri, status } = await FileSystem.downloadAsync(espUrl, localUri);
+
+        if (status !== 200) {
+          throw new Error("Não foi possível acessar a câmera. Verifique o IP.");
+        }
+
+        formData.append('imagem', {
+          uri: uri,
+          name: 'placa_arduino.jpg',
+          type: 'image/jpeg'
+        } as any);
+      }
 
       setModalVisible(false);
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
-
-      if (!foto || !foto.uri) throw new Error("Falha ao capturar imagem");
-
-      const formData = new FormData();
-      formData.append('imagem', {
-        uri: foto.uri,
-        name: 'placa_capturada.jpg',
-        type: 'image/jpeg'
-      } as any);
-      
-      formData.append('velocidade', String(velocidade));
 
       const response = await fetch(`${API_URL}/reconhecer-placa`, {
         method: 'POST',
-        body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
+        body: formData
       });
 
       const dados = await response.json();
@@ -125,7 +120,6 @@ export default function Home() {
         setPlacaLida(dados.placa);
         setStatusLeitura(dados.status);
         setProprietario(dados.proprietario || "");
-
         fetchUltimasLeituras();
       } else {
         mostrarAviso("Aviso", dados.message || "Não foi possível ler a placa.");
@@ -133,15 +127,10 @@ export default function Home() {
 
     } catch (error) {
       console.log("Erro:", error);
-      mostrarAviso("Erro", "Falha de conexão com o servidor.");
-      await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+      mostrarAviso("Erro de Conexão", "Falha ao comunicar com o Arduino ou Servidor. Verifique a rede.");
     } finally {
       setCarregandoCaptura(false);
     }
-  }
-
-  if (!permission) {
-    return <View style={styles.screen} />;
   }
 
   return (
@@ -153,27 +142,31 @@ export default function Home() {
           <Text style={styles.greeting}>Olá, {nome}</Text>
         </View>
 
-        <TouchableOpacity style={styles.cameraBox} onPress={abrirCameraFullscreen}>
-          
-          {!permission.granted ? (
-            <View style={styles.permissaoContainer}>
-              <Text style={styles.permissaoTexto}>Precisamos de acesso à câmera.</Text>
-              <TouchableOpacity style={styles.permissaoBtn} onPress={requestPermission}>
-                <Text style={styles.permissaoBtnTexto}>Conceder Permissão</Text>
-              </TouchableOpacity>
+        <View style={styles.cardArduino}>
+            <Text style={styles.labelArduino}>IP do Sensor / Câmera (Arduino):</Text>
+            <View style={styles.inputIpContainer}>
+                <Ionicons name="wifi" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+                <TextInput 
+                    style={styles.inputIp}
+                    value={ipArduino}
+                    onChangeText={setIpArduino}
+                    keyboardType="numeric"
+                    placeholder="Ex: 192.168.1.100"
+                    placeholderTextColor="#555"
+                />
             </View>
-          ) : (
-            <CameraView 
-              style={styles.camera} 
-              facing="back" 
-            />
-          )}
-
-          <View style={styles.cameraOverlay}>
-             <Ionicons name="expand-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-             <Text style={styles.cameraTexto}>Toque para tela cheia</Text>
-          </View>
-        </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.btnCapturaArduino} onPress={capturarEEnviarImagem}>
+                {carregandoCaptura ? (
+                    <ActivityIndicator color="#000" />
+                ) : (
+                    <>
+                        <Ionicons name="camera" size={20} color="#000" style={{ marginRight: 8 }} />
+                        <Text style={styles.btnCapturaTexto}>Ler Placa via Sensor</Text>
+                    </>
+                )}
+            </TouchableOpacity>
+        </View>
 
         <View style={styles.card}>
           <View style={styles.infoRow}>
@@ -229,26 +222,6 @@ export default function Home() {
         </View>
       </ScrollView>
 
-      <Modal visible={modalVisible} transparent={false} animationType="slide">
-        <View style={styles.modalFullscreen}>
-          <CameraView 
-            style={styles.cameraFullscreen} 
-            facing="back"
-            ref={cameraRef}
-          />
-          
-          <TouchableOpacity style={styles.fecharModalBtn} onPress={fecharCameraFullscreen}>
-            <Ionicons name="close-outline" size={30} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.capturaBtn} onPress={capturarEEnviarImagem}>
-            <Text style={styles.capturaBtnTexto}>
-              {carregandoCaptura ? "Processando..." : "Capturar Placa"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </Modal>
-
       <Modal visible={avisoVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContentAviso}>
@@ -264,204 +237,186 @@ export default function Home() {
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: "#000",
   },
+
   container: {
     padding: 20,
     paddingTop: 40,
     paddingBottom: 120,
   },
+
   top: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
   },
+
   greeting: {
     color: "#fff",
     fontSize: 22,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
-  cameraBox: {
+
+  cardArduino: {
+    backgroundColor: "#111",
     borderRadius: 20,
-    overflow: "hidden",
-    borderWidth: 2,
-    borderColor: "#D9FF00",
-    marginBottom: 20,
-    position: 'relative',
-    backgroundColor: '#111',
-  },
-  camera: {
-    height: 200,
-    width: '100%',
-  },
-  cameraOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 40,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    paddingHorizontal: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cameraTexto: {
-    color: "#fff",
-    fontStyle: 'italic',
-    fontWeight: '500',
-    flex: 1,
-  },
-  permissaoContainer: {
-    height: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
     padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#333",
   },
-  permissaoTexto: {
-    color: '#888',
-    textAlign: 'center',
-    marginBottom: 15,
+
+  labelArduino: {
+    color: "#888",
+    fontSize: 14,
+    marginBottom: 10,
   },
-  permissaoBtn: {
-    backgroundColor: '#D9FF00',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+
+  inputIpContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#000",
     borderRadius: 10,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    height: 50,
   },
-  permissaoBtnTexto: {
-    color: '#000',
-    fontWeight: 'bold',
+
+  inputIp: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 16,
   },
+
+  btnCapturaArduino: {
+    backgroundColor: "#D9FF00",
+    paddingVertical: 15,
+    borderRadius: 15,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  btnCapturaTexto: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+
   card: {
     backgroundColor: "#1e1e1e",
     borderRadius: 20,
     marginBottom: 20,
     paddingVertical: 10,
   },
+
   cardTitle: {
-    color: '#fff',
-    fontWeight: 'bold',
+    color: "#fff",
+    fontWeight: "bold",
     fontSize: 14,
     paddingHorizontal: 20,
     paddingVertical: 10,
   },
+
   infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
   },
+
   infoLabel: {
     color: "#aaa",
     fontSize: 16,
     width: 110,
   },
+
   infoValue: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
+
   divider: {
     height: 1,
-    backgroundColor: '#333',
+    backgroundColor: "#333",
     marginHorizontal: 20,
   },
+
   historyItem: {
     paddingHorizontal: 20,
     paddingVertical: 15,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
+
   historyText: {
     color: "#fff",
     fontSize: 15,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
+
   historyTime: {
-    color: '#888',
+    color: "#888",
     fontSize: 12,
   },
+
   semHistoricoText: {
-    color: '#888',
-    textAlign: 'center',
+    color: "#888",
+    textAlign: "center",
     padding: 20,
     fontSize: 14,
   },
-  modalFullscreen: {
-    flex: 1,
-    backgroundColor: '#000',
-    position: 'relative',
-  },
-  cameraFullscreen: {
-    flex: 1,
-  },
-  fecharModalBtn: {
-    position: 'absolute',
-    top: 20,
-    right: 20,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 10,
-    borderRadius: 25,
-  },
-  capturaBtn: {
-    position: 'absolute',
-    bottom: 20,
-    alignSelf: 'center',
-    backgroundColor: '#D9FF00',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 15,
-  },
-  capturaBtnTexto: {
-    color: '#000',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
+
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
   },
+
   modalContentAviso: {
-    width: '85%',
-    backgroundColor: '#1e1e1e',
+    width: "85%",
+    backgroundColor: "#1e1e1e",
     padding: 20,
     borderRadius: 20,
-    alignItems: 'center',
+    alignItems: "center",
   },
+
   modalTitleAviso: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
+
   avisoMessageText: {
     fontSize: 16,
-    color: '#94a3b8',
-    textAlign: 'center',
+    color: "#94a3b8",
+    textAlign: "center",
     marginBottom: 20,
     lineHeight: 22,
   },
+
   avisoOkBtn: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 12,
     paddingHorizontal: 40,
     borderRadius: 10,
-    alignItems: 'center',
-    width: '100%',
+    alignItems: "center",
+    width: "100%",
   },
+
   avisoOkText: {
-    color: '#000',
-    fontWeight: 'bold',
+    color: "#000",
+    fontWeight: "bold",
     fontSize: 16,
   },
 });
