@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, Platform } from "react-native";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, Platform, Image } from "react-native";
 import { useEffect, useState, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "@/components/Header";
@@ -11,12 +11,15 @@ export default function Home() {
   const [velocidade, setVelocidade] = useState(27);
   const [nome, setNome] = useState("Usuário");
   
-  //ip do arduino
+  // IP do arduino/ESP32-Cam 
   const [ipArduino, setIpArduino] = useState("172.20.10.9");
 
   const [modalVisible, setModalVisible] = useState(false);
   const [carregandoCaptura, setCarregandoCaptura] = useState(false);
   const [carregandoHistorico, setCarregandoHistorico] = useState(true);
+
+  const [previewKey, setPreviewKey] = useState(Date.now());
+  const [isStreaming, setIsStreaming] = useState(true);
 
   const [placaLida, setPlacaLida] = useState("Aguardando...");
   const [statusLeitura, setStatusLeitura] = useState("Aguardando detecção");
@@ -44,6 +47,18 @@ export default function Home() {
     }
     checkUser();
   }, []);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>; 
+    
+    if (isStreaming && ipArduino) {
+      interval = setInterval(() => {
+        setPreviewKey(Date.now());
+      }, 200);
+    }
+    
+    return () => clearInterval(interval);
+  }, [isStreaming, ipArduino]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +95,11 @@ export default function Home() {
 
   async function capturarEEnviarImagem() {
     if (carregandoCaptura) return;
+    
     setCarregandoCaptura(true);
+    setIsStreaming(false); 
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
       const espUrl = `http://${ipArduino}/capture`;
@@ -109,6 +128,7 @@ export default function Home() {
 
       setModalVisible(false);
 
+      //enviar a imagem e os dados para o servidor 
       const response = await fetch(`${API_URL}/reconhecer-placa`, {
         method: 'POST',
         body: formData
@@ -130,6 +150,7 @@ export default function Home() {
       mostrarAviso("Erro de Conexão", "Falha ao comunicar com o Arduino ou Servidor. Verifique a rede.");
     } finally {
       setCarregandoCaptura(false);
+      setIsStreaming(true);
     }
   }
 
@@ -140,6 +161,26 @@ export default function Home() {
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           <Text style={styles.greeting}>Olá, {nome}</Text>
+        </View>
+
+        <View style={styles.cameraBox}>
+            {ipArduino && isStreaming ? (
+                <Image 
+                    source={{ uri: `http://${ipArduino}/capture?t=${previewKey}` }}
+                    style={styles.camera}
+                    resizeMode="cover"
+                />
+            ) : (
+                <View style={styles.permissaoContainer}>
+                    <ActivityIndicator color="#D9FF00" size="large" />
+                    <Text style={[styles.permissaoTexto, { marginTop: 10 }]}>Processando Câmera...</Text>
+                </View>
+            )}
+            
+            <View style={styles.cameraOverlay}>
+                <Ionicons name="hardware-chip-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                <Text style={styles.cameraTexto}>Câmera do Arduino (Ao Vivo)</Text>
+            </View>
         </View>
 
         <View style={styles.cardArduino}>
@@ -202,7 +243,7 @@ export default function Home() {
         <View style={styles.card}>
            <Text style={styles.cardTitle}>Últimas Leituras (5)</Text>
            
-           {carregandoCaptura || carregandoHistorico ? (
+           {carregandoHistorico ? (
              <ActivityIndicator color="#D9FF00" style={{ padding: 20 }} />
            ) : historicoPlacas.length > 0 ? (
              historicoPlacas.map((item, index) => (
@@ -237,6 +278,7 @@ export default function Home() {
     </View>
   );
 }
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -259,6 +301,54 @@ const styles = StyleSheet.create({
   greeting: {
     color: "#fff",
     fontSize: 22,
+    fontWeight: "bold",
+  },
+
+  cameraBox: {
+    backgroundColor: "#111",
+    borderRadius: 20,
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "#D9FF00",
+    marginBottom: 20,
+    position: "relative",
+  },
+
+  camera: {
+    height: 220,
+    width: "100%",
+  },
+
+  cameraOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 40,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    paddingHorizontal: 15,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  cameraTexto: {
+    color: "#fff",
+    fontStyle: "italic",
+    fontWeight: "500",
+    flex: 1,
+  },
+
+  permissaoContainer: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+
+  permissaoTexto: {
+    color: "#888",
+    textAlign: "center",
     fontWeight: "bold",
   },
 
