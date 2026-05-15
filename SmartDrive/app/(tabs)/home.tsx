@@ -11,8 +11,9 @@ export default function Home() {
   const [velocidade, setVelocidade] = useState(27);
   const [nome, setNome] = useState("Usuário");
   
-  // IP do arduino/ESP32-Cam 
-  const [ipArduino, setIpArduino] = useState("172.20.10.9");
+  // IPs dos arduinos (espcam e sensor)
+  const [ipCamera, setIpCamera] = useState("172.20.10.9");
+  const [ipSensor, setIpSensor] = useState("172.20.10.11");
 
   const [modalVisible, setModalVisible] = useState(false);
   const [carregandoCaptura, setCarregandoCaptura] = useState(false);
@@ -51,14 +52,25 @@ export default function Home() {
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>; 
     
-    if (isStreaming && ipArduino) {
-      interval = setInterval(() => {
+    if (isStreaming && ipCamera && ipSensor && !carregandoCaptura) {
+      interval = setInterval(async () => {
         setPreviewKey(Date.now());
-      }, 200);
+
+        try {
+          const res = await fetch(`http://${ipSensor}/status`);
+          const data = await res.json();
+          
+          if (data.detectado) {
+            console.log("🚨 Sensor Laser Disparou! Tirando foto...");
+            capturarEEnviarImagem();
+          }
+        } catch (error) {
+        }
+      }, 300);
     }
     
     return () => clearInterval(interval);
-  }, [isStreaming, ipArduino]);
+  }, [isStreaming, ipCamera, ipSensor, carregandoCaptura, velocidade]);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,7 +114,7 @@ export default function Home() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     try {
-      const espUrl = `http://${ipArduino}/capture`;
+      const espUrl = `http://${ipCamera}/capture`;
       const formData = new FormData();
       formData.append('velocidade', String(velocidade));
 
@@ -128,7 +140,6 @@ export default function Home() {
 
       setModalVisible(false);
 
-      //enviar a imagem e os dados para o servidor 
       const response = await fetch(`${API_URL}/reconhecer-placa`, {
         method: 'POST',
         body: formData
@@ -147,7 +158,7 @@ export default function Home() {
 
     } catch (error) {
       console.log("Erro:", error);
-      mostrarAviso("Erro de Conexão", "Falha ao comunicar com o Arduino ou Servidor. Verifique a rede.");
+      mostrarAviso("Erro de Conexão", "Falha ao comunicar com os Arduinos ou Servidor.");
     } finally {
       setCarregandoCaptura(false);
       setIsStreaming(true);
@@ -164,16 +175,18 @@ export default function Home() {
         </View>
 
         <View style={styles.cameraBox}>
-            {ipArduino && isStreaming ? (
+            {ipCamera && isStreaming ? (
                 <Image 
-                    source={{ uri: `http://${ipArduino}/capture?t=${previewKey}` }}
+                    source={{ uri: `http://${ipCamera}/capture?t=${previewKey}` }}
                     style={styles.camera}
                     resizeMode="cover"
                 />
             ) : (
                 <View style={styles.permissaoContainer}>
                     <ActivityIndicator color="#D9FF00" size="large" />
-                    <Text style={[styles.permissaoTexto, { marginTop: 10 }]}>Processando Câmera...</Text>
+                    <Text style={[styles.permissaoTexto, { marginTop: 10 }]}>
+                        {carregandoCaptura ? "Processando Placa (IA)..." : "Conectando Câmera..."}
+                    </Text>
                 </View>
             )}
             
@@ -184,15 +197,28 @@ export default function Home() {
         </View>
 
         <View style={styles.cardArduino}>
-            <Text style={styles.labelArduino}>IP do Sensor / Câmera (Arduino):</Text>
+            <Text style={styles.labelArduino}>IP da Câmera (ESP32-CAM):</Text>
             <View style={styles.inputIpContainer}>
-                <Ionicons name="wifi" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+                <Ionicons name="videocam" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
                 <TextInput 
                     style={styles.inputIp}
-                    value={ipArduino}
-                    onChangeText={setIpArduino}
+                    value={ipCamera}
+                    onChangeText={setIpCamera}
                     keyboardType="numeric"
                     placeholder="Ex: 192.168.1.100"
+                    placeholderTextColor="#555"
+                />
+            </View>
+
+            <Text style={styles.labelArduino}>IP do Sensor (Laser):</Text>
+            <View style={styles.inputIpContainer}>
+                <Ionicons name="flash" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+                <TextInput 
+                    style={styles.inputIp}
+                    value={ipSensor}
+                    onChangeText={setIpSensor}
+                    keyboardType="numeric"
+                    placeholder="Ex: 192.168.1.101"
                     placeholderTextColor="#555"
                 />
             </View>
@@ -203,7 +229,7 @@ export default function Home() {
                 ) : (
                     <>
                         <Ionicons name="camera" size={20} color="#000" style={{ marginRight: 8 }} />
-                        <Text style={styles.btnCapturaTexto}>Ler Placa via Sensor</Text>
+                        <Text style={styles.btnCapturaTexto}>Forçar Leitura Manual</Text>
                     </>
                 )}
             </TouchableOpacity>
