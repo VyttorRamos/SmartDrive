@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, TextInput, Platform, Image } from "react-native";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "@/components/Header";
 import { API_URL } from "@/constants/api";
@@ -8,12 +8,15 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useFocusEffect } from '@react-navigation/native';
 
 export default function Home() {
-  const [velocidade, setVelocidade] = useState(27);
+  const [velocidade, setVelocidade] = useState(0);
   const [nome, setNome] = useState("Usuário");
-  
-  // IPs dos arduinos (espcam e sensor)
-  const [ipCamera, setIpCamera] = useState("172.20.10.9");
-  const [ipSensor, setIpSensor] = useState("172.20.10.11");
+
+  // IPs dos 3 hardwares
+  const [ipCamera, setIpCamera] = useState("192.168.1.9");
+  const [ipSensorEntrada, setIpSensorEntrada] = useState("192.168.1.25");
+  const [ipSensorSaida, setIpSensorSaida] = useState("192.168.1.61");
+
+  const tempoEntradaRef = useRef<number | null>(null);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [carregandoCaptura, setCarregandoCaptura] = useState(false);
@@ -25,7 +28,7 @@ export default function Home() {
   const [placaLida, setPlacaLida] = useState("Aguardando...");
   const [statusLeitura, setStatusLeitura] = useState("Aguardando detecção");
   const [proprietario, setProprietario] = useState("");
-  
+
   const [historicoPlacas, setHistoricoPlacas] = useState<any[]>([]);
 
   const [avisoVisible, setAvisoVisible] = useState(false);
@@ -50,27 +53,68 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>; 
-    
-    if (isStreaming && ipCamera && ipSensor && !carregandoCaptura) {
-      interval = setInterval(async () => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isStreaming && ipCamera && !carregandoCaptura) {
+      interval = setInterval(() => {
         setPreviewKey(Date.now());
+      }, 1000); 
+    }
+    return () => clearInterval(interval);
+  }, [isStreaming, ipCamera, carregandoCaptura]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+
+    if (ipSensorEntrada && ipSensorSaida && !carregandoCaptura) {
+      interval = setInterval(async () => {
 
         try {
-          const res = await fetch(`http://${ipSensor}/status`);
-          const data = await res.json();
-          
-          if (data.detectado) {
-            console.log("🚨 Sensor Laser Disparou! Tirando foto...");
-            capturarEEnviarImagem();
+          const resEntrada = await fetch(`http://${ipSensorEntrada}/status`);
+          const dataEntrada = await resEntrada.json();
+
+          if (dataEntrada.entrada && tempoEntradaRef.current === null) {
+            console.log("🚗 CARRO ENTROU - Iniciando cronômetro!");
+            tempoEntradaRef.current = Date.now();
           }
-        } catch (error) {
-        }
-      }, 300);
+        } catch (error) { }
+
+        try {
+          const resSaida = await fetch(`http://${ipSensorSaida}/status`);
+          const dataSaida = await resSaida.json();
+
+          if (dataSaida.saida && tempoEntradaRef.current !== null) {
+            console.log("🚙 CARRO SAIU - Calculando velocidade...");
+            let velCalculada = 0;
+
+            const tempoSaida = Date.now();
+            const deltaTSegundos = (tempoSaida - tempoEntradaRef.current) / 1000;
+
+            // distância física real da maquete
+            const distanciaMetros = 0.08;
+
+            // compensa o tamanho do carrinho e o atraso de ping 
+            const FATOR_ESCALA = 250;
+
+            // v = d/t (m/s) * 3.6 = km/h
+            const velFisicaKmH = (distanciaMetros / deltaTSegundos) * 3.6;
+            const velSimulada = velFisicaKmH * FATOR_ESCALA;
+
+            velCalculada = parseFloat(velSimulada.toFixed(2));
+
+            console.log(`⏱ Tempo: ${deltaTSegundos}s | Vel. Física: ${velFisicaKmH.toFixed(4)} | Vel. Simulada: ${velCalculada} km/h`);
+
+            tempoEntradaRef.current = null;
+
+            setVelocidade(velCalculada);
+            capturarEEnviarImagem(velCalculada);
+          }
+        } catch (error) { }
+
+      }, 200); 
     }
-    
+
     return () => clearInterval(interval);
-  }, [isStreaming, ipCamera, ipSensor, carregandoCaptura, velocidade]);
+  }, [ipSensorEntrada, ipSensorSaida, carregandoCaptura]);
 
   useFocusEffect(
     useCallback(() => {
@@ -83,7 +127,7 @@ export default function Home() {
     try {
       const response = await fetch(`${API_URL}/infracoes`);
       const data = await response.json();
-      
+
       const ultimas5 = data.slice(0, 5).map((inf: any) => {
         const d = new Date(inf.data_hora);
         const horaStr = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -94,7 +138,7 @@ export default function Home() {
           hora: horaStr !== 'Invalid Date' ? horaStr : ''
         };
       });
-      
+
       setHistoricoPlacas(ultimas5);
     } catch (error) {
       console.log("Erro ao buscar últimas leituras:", error);
@@ -105,24 +149,25 @@ export default function Home() {
 
   const acimaLimite = velocidade > 20;
 
-  async function capturarEEnviarImagem() {
+  async function capturarEEnviarImagem(velRegistrada: number = velocidade) {
     if (carregandoCaptura) return;
-    
+
     setCarregandoCaptura(true);
-    setIsStreaming(false); 
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
+    setIsStreaming(false);
+    tempoEntradaRef.current = null; 
+
+    await new Promise(resolve => setTimeout(resolve, 800)); 
 
     try {
-      const espUrl = `http://${ipCamera}/capture`;
+      const espUrl = `http://${ipCamera}/capture?t=${Date.now()}`;
       const formData = new FormData();
-      formData.append('velocidade', String(velocidade));
+      formData.append('velocidade', String(velRegistrada));
 
       if (Platform.OS === 'web') {
         const imageResponse = await fetch(espUrl);
         const imageBlob = await imageResponse.blob();
         formData.append('imagem', imageBlob, 'placa_arduino.jpg');
-      } 
+      }
       else {
         const localUri = FileSystem.cacheDirectory + 'placa_arduino.jpg';
         const { uri, status } = await FileSystem.downloadAsync(espUrl, localUri);
@@ -168,71 +213,84 @@ export default function Home() {
   return (
     <View style={styles.screen}>
       <Header />
-      
+
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.top}>
           <Text style={styles.greeting}>Olá, {nome}</Text>
         </View>
 
         <View style={styles.cameraBox}>
-            {ipCamera && isStreaming ? (
-                <Image 
-                    source={{ uri: `http://${ipCamera}/capture?t=${previewKey}` }}
-                    style={styles.camera}
-                    resizeMode="cover"
-                />
-            ) : (
-                <View style={styles.permissaoContainer}>
-                    <ActivityIndicator color="#D9FF00" size="large" />
-                    <Text style={[styles.permissaoTexto, { marginTop: 10 }]}>
-                        {carregandoCaptura ? "Processando Placa (IA)..." : "Conectando Câmera..."}
-                    </Text>
-                </View>
-            )}
-            
-            <View style={styles.cameraOverlay}>
-                <Ionicons name="hardware-chip-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                <Text style={styles.cameraTexto}>Câmera do Arduino (Ao Vivo)</Text>
+          {ipCamera && isStreaming ? (
+            <Image
+              source={{ uri: `http://${ipCamera}/capture?t=${previewKey}` }}
+              style={styles.camera}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={styles.permissaoContainer}>
+              <ActivityIndicator color="#D9FF00" size="large" />
+              <Text style={[styles.permissaoTexto, { marginTop: 10 }]}>
+                {carregandoCaptura ? "Processando Placa (IA)..." : "Conectando Câmera..."}
+              </Text>
             </View>
+          )}
+
+          <View style={styles.cameraOverlay}>
+            <Ionicons name="hardware-chip-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.cameraTexto}>Câmera do Arduino (Ao Vivo)</Text>
+          </View>
         </View>
 
         <View style={styles.cardArduino}>
-            <Text style={styles.labelArduino}>IP da Câmera (ESP32-CAM):</Text>
-            <View style={styles.inputIpContainer}>
-                <Ionicons name="videocam" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
-                <TextInput 
-                    style={styles.inputIp}
-                    value={ipCamera}
-                    onChangeText={setIpCamera}
-                    keyboardType="numeric"
-                    placeholder="Ex: 192.168.1.100"
-                    placeholderTextColor="#555"
-                />
-            </View>
+          <Text style={styles.labelArduino}>IP da Câmera (ESP32-CAM):</Text>
+          <View style={styles.inputIpContainer}>
+            <Ionicons name="videocam" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.inputIp}
+              value={ipCamera}
+              onChangeText={setIpCamera}
+              keyboardType="numeric"
+              placeholder="Ex: 192.168.1.100"
+              placeholderTextColor="#555"
+            />
+          </View>
 
-            <Text style={styles.labelArduino}>IP do Sensor (Laser):</Text>
-            <View style={styles.inputIpContainer}>
-                <Ionicons name="flash" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
-                <TextInput 
-                    style={styles.inputIp}
-                    value={ipSensor}
-                    onChangeText={setIpSensor}
-                    keyboardType="numeric"
-                    placeholder="Ex: 192.168.1.101"
-                    placeholderTextColor="#555"
-                />
-            </View>
-            
-            <TouchableOpacity style={styles.btnCapturaArduino} onPress={capturarEEnviarImagem}>
-                {carregandoCaptura ? (
-                    <ActivityIndicator color="#000" />
-                ) : (
-                    <>
-                        <Ionicons name="camera" size={20} color="#000" style={{ marginRight: 8 }} />
-                        <Text style={styles.btnCapturaTexto}>Forçar Leitura Manual</Text>
-                    </>
-                )}
-            </TouchableOpacity>
+          <Text style={styles.labelArduino}>IP do Sensor ENTRADA (Laser):</Text>
+          <View style={styles.inputIpContainer}>
+            <Ionicons name="flash" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.inputIp}
+              value={ipSensorEntrada}
+              onChangeText={setIpSensorEntrada}
+              keyboardType="numeric"
+              placeholder="Ex: 192.168.1.101"
+              placeholderTextColor="#555"
+            />
+          </View>
+
+          <Text style={styles.labelArduino}>IP do Sensor SAÍDA (Laser):</Text>
+          <View style={styles.inputIpContainer}>
+            <Ionicons name="exit-outline" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+            <TextInput
+              style={styles.inputIp}
+              value={ipSensorSaida}
+              onChangeText={setIpSensorSaida}
+              keyboardType="numeric"
+              placeholder="Ex: 192.168.1.102"
+              placeholderTextColor="#555"
+            />
+          </View>
+
+          <TouchableOpacity style={styles.btnCapturaArduino} onPress={() => capturarEEnviarImagem()}>
+            {carregandoCaptura ? (
+              <ActivityIndicator color="#000" />
+            ) : (
+              <>
+                <Ionicons name="camera" size={20} color="#000" style={{ marginRight: 8 }} />
+                <Text style={styles.btnCapturaTexto}>Forçar Leitura Manual</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
@@ -241,17 +299,17 @@ export default function Home() {
             <Text style={styles.infoValue}>{placaLida}</Text>
           </View>
           <View style={styles.divider} />
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Velocidade:</Text>
             <Text style={styles.infoValue}>{velocidade} km/h</Text>
           </View>
           <View style={styles.divider} />
-          
+
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Status:</Text>
             <Text style={[styles.infoValue, { color: statusLeitura === 'Não Cadastrada' ? '#ff4444' : '#fff' }]}>
-                {statusLeitura}
+              {statusLeitura}
             </Text>
           </View>
 
@@ -267,25 +325,25 @@ export default function Home() {
         </View>
 
         <View style={styles.card}>
-           <Text style={styles.cardTitle}>Últimas Leituras (5)</Text>
-           
-           {carregandoHistorico ? (
-             <ActivityIndicator color="#D9FF00" style={{ padding: 20 }} />
-           ) : historicoPlacas.length > 0 ? (
-             historicoPlacas.map((item, index) => (
-                <View key={item.id}>
-                    <View style={styles.historyItem}>
-                        <Text style={styles.historyText}>
-                            {item.placa || 'Sem Placa'}  -  {item.velocidade} km/h
-                        </Text>
-                        <Text style={styles.historyTime}>{item.hora}</Text>
-                    </View>
-                    {index < historicoPlacas.length - 1 && <View style={styles.divider} />}
+          <Text style={styles.cardTitle}>Últimas Leituras (5)</Text>
+
+          {carregandoHistorico ? (
+            <ActivityIndicator color="#D9FF00" style={{ padding: 20 }} />
+          ) : historicoPlacas.length > 0 ? (
+            historicoPlacas.map((item, index) => (
+              <View key={item.id}>
+                <View style={styles.historyItem}>
+                  <Text style={styles.historyText}>
+                    {item.placa || 'Sem Placa'}  -  {item.velocidade} km/h
+                  </Text>
+                  <Text style={styles.historyTime}>{item.hora}</Text>
                 </View>
-             ))
-           ) : (
-             <Text style={styles.semHistoricoText}>Nenhuma placa lida recentemente.</Text>
-           )}
+                {index < historicoPlacas.length - 1 && <View style={styles.divider} />}
+              </View>
+            ))
+          ) : (
+            <Text style={styles.semHistoricoText}>Nenhuma placa lida recentemente.</Text>
+          )}
         </View>
       </ScrollView>
 
