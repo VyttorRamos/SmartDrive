@@ -1,8 +1,9 @@
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, FlatList, Modal, ScrollView, ActivityIndicator } from "react-native";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Header from "@/components/Header";
 import { Search } from 'lucide-react-native';
 import { API_URL } from "@/constants/api";
+import { Ionicons } from '@expo/vector-icons';
 
 type Usuario = {
   id: number;
@@ -23,6 +24,11 @@ type Infracao = {
   usuario_id: number;
 };
 
+type Veiculo = {
+  id: number;
+  placa: string;
+};
+
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [busca, setBusca] = useState('');
@@ -36,6 +42,9 @@ export default function Usuarios() {
   const [modalDetalhesVisible, setModalDetalhesVisible] = useState(false);
   const [usuarioSelecionado, setUsuarioSelecionado] = useState<Usuario | null>(null);
 
+  const [novaPlaca, setNovaPlaca] = useState('');
+  const [veiculosDoUsuario, setVeiculosDoUsuario] = useState<Veiculo[]>([]);
+
   const [infracoesDoUsuario, setInfracoesDoUsuario] = useState<Infracao[]>([]);
   const [carregandoInfracoes, setCarregandoInfracoes] = useState(false);
 
@@ -45,6 +54,29 @@ export default function Usuarios() {
 
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<{ id: number, nome: string } | null>(null);
+
+  const [confirmPlacaVisible, setConfirmPlacaVisible] = useState(false);
+  const [placaParaExcluir, setPlacaParaExcluir] = useState<{ id: number, placa: string } | null>(null);
+
+  const [ocultarMenu, setOcultarMenu] = useState(false);
+  const ultimoScrollY = useRef(0);
+
+  const rastrearScroll = (event: any) => {
+    const scrollAtual = event.nativeEvent.contentOffset.y;
+    if (scrollAtual <= 0) {
+      setOcultarMenu(false);
+      ultimoScrollY.current = scrollAtual;
+      return;
+    }
+    const diferenca = scrollAtual - ultimoScrollY.current;
+    if (diferenca > 10) {
+      setOcultarMenu(true); 
+      ultimoScrollY.current = scrollAtual;
+    } else if (diferenca < -10) {
+      setOcultarMenu(false);
+      ultimoScrollY.current = scrollAtual;
+    }
+  };
 
   function mostrarAviso(titulo: string, mensagem: string) {
     setAvisoTitle(titulo);
@@ -66,21 +98,90 @@ export default function Usuarios() {
     }
   }
 
+  async function fetchVeiculosUsuario(usuarioId: number) {
+    try {
+      const response = await fetch(`${API_URL}/usuarios/${usuarioId}/veiculos`);
+      const data = await response.json();
+      setVeiculosDoUsuario(data);
+    } catch (error) {
+      console.log("Erro ao buscar veículos:", error);
+    }
+  }
+
   async function abrirDetalhesUsuario(usuario: Usuario) {
     setUsuarioSelecionado(usuario);
     setInfracoesDoUsuario([]);
+    setVeiculosDoUsuario([]);
+    setNovaPlaca(''); 
     setCarregandoInfracoes(true);
     setModalDetalhesVisible(true);
 
     try {
-      const response = await fetch(`${API_URL}/infracoes`);
-      const data = await response.json();
-      const filtradas = data.filter((inf: Infracao) => inf.usuario_id === usuario.id);
+      const responseInf = await fetch(`${API_URL}/infracoes`);
+      const dataInf = await responseInf.json();
+      const filtradas = dataInf.filter((inf: Infracao) => inf.usuario_id === usuario.id);
       setInfracoesDoUsuario(filtradas);
+
+      await fetchVeiculosUsuario(usuario.id);
     } catch (error) {
       console.log(error);
     } finally {
       setCarregandoInfracoes(false);
+    }
+  }
+
+  async function cadastrarPlaca() {
+    if (!novaPlaca || novaPlaca.length < 7) {
+      mostrarAviso("Atenção", "Digite uma placa válida com 7 caracteres.");
+      return;
+    }
+
+    if (!usuarioSelecionado) return;
+
+    try {
+      const response = await fetch(`${API_URL}/veiculos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          usuario_id: usuarioSelecionado.id,
+          placa: novaPlaca
+        })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setNovaPlaca('');
+        mostrarAviso("Sucesso!", result.message);
+        fetchVeiculosUsuario(usuarioSelecionado.id);
+      } else {
+        mostrarAviso("Erro", result.message || "Não foi possível cadastrar a placa.");
+      }
+    } catch (error) {
+      mostrarAviso("Erro de Conexão", "Falha ao conectar com o servidor.");
+    }
+  }
+
+  function confirmarExclusaoPlaca(id: number, placa: string) {
+    setPlacaParaExcluir({ id, placa });
+    setConfirmPlacaVisible(true);
+  }
+
+  async function executarExclusaoPlaca() {
+    if (!placaParaExcluir || !usuarioSelecionado) return;
+
+    try {
+      const response = await fetch(`${API_URL}/veiculos/${placaParaExcluir.id}/inativar`, { method: "PUT" });
+      if (response.ok) {
+        setConfirmPlacaVisible(false);
+        fetchVeiculosUsuario(usuarioSelecionado.id);
+        mostrarAviso("Desvinculada", "A placa foi removida do usuário.");
+      } else {
+        setConfirmPlacaVisible(false);
+        mostrarAviso("Falha", "Não foi possível remover a placa.");
+      }
+    } catch (error) {
+      setConfirmPlacaVisible(false);
+      mostrarAviso("Erro", "Sem conexão com o servidor.");
     }
   }
 
@@ -194,7 +295,7 @@ export default function Usuarios() {
 
   return (
     <View style={styles.screen}>
-      <Header />
+      <Header ocultar={ocultarMenu} />
 
       <View style={styles.container}>
         <Text style={styles.titulo}>Usuários</Text>
@@ -251,6 +352,8 @@ export default function Usuarios() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingBottom: 120 }}
           ListEmptyComponent={<Text style={styles.semUsuariosText}>Nenhum usuário encontrado.</Text>}
+          onScroll={rastrearScroll}
+          scrollEventThrottle={16}
         />
       </View>
 
@@ -281,7 +384,42 @@ export default function Usuarios() {
                   <Text style={styles.detalhesItem}><Text style={styles.bold}>Status:</Text> {usuarioSelecionado.ativo !== 0 ? 'Ativo' : 'Inativo'}</Text>
                 </View>
 
-                <Text style={styles.subTituloInfracoes}>Histórico:</Text>
+                <Text style={styles.subTituloInfracoes}>Placas Cadastradas:</Text>
+                <View style={styles.placasContainer}>
+                  {carregandoInfracoes ? (
+                    <ActivityIndicator color="#D9FF00" size="small" />
+                  ) : veiculosDoUsuario.length > 0 ? (
+                    veiculosDoUsuario.map(v => (
+                      <View key={v.id} style={styles.placaBadge}>
+                        <Text style={styles.placaText}>{v.placa}</Text>
+                        <TouchableOpacity onPress={() => confirmarExclusaoPlaca(v.id, v.placa)} style={styles.btnRemoverPlaca}>
+                          <Ionicons name="close-circle" size={18} color="#ff4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.semInfracoes}>Nenhuma placa vinculada.</Text>
+                  )}
+                </View>
+
+                {usuarioSelecionado.ativo !== 0 && (
+                  <View style={styles.addPlacaContainer}>
+                    <TextInput
+                      style={styles.inputPlaca}
+                      placeholder="Nova Placa (ex: ABC1234)"
+                      placeholderTextColor="#888"
+                      autoCapitalize="characters"
+                      maxLength={7}
+                      value={novaPlaca}
+                      onChangeText={setNovaPlaca}
+                    />
+                    <TouchableOpacity style={styles.btnSalvarPlaca} onPress={cadastrarPlaca}>
+                      <Text style={styles.btnSalvarPlacaText}>Vincular</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                <Text style={styles.subTituloInfracoes}>Histórico de Infrações:</Text>
                 <View style={styles.listaInfracoesContainer}>
                   {carregandoInfracoes ? <ActivityIndicator color="#D9FF00" style={{ padding: 20 }} /> :
                     infracoesDoUsuario.length > 0 ? (
@@ -296,7 +434,7 @@ export default function Usuarios() {
                           </View>
                         ))}
                       </ScrollView>
-                    ) : <Text style={styles.semInfracoes}>Nenhuma infração.</Text>}
+                    ) : <Text style={styles.semInfracoes}>Nenhuma infração registrada.</Text>}
                 </View>
 
                 <View style={styles.botoesDetalhesRow}>
@@ -341,6 +479,26 @@ export default function Usuarios() {
               </TouchableOpacity>
               <TouchableOpacity style={[styles.avisoOkBtn, { flex: 1, backgroundColor: '#ff4444' }]} onPress={executarExclusao}>
                 <Text style={[styles.avisoOkText, { color: '#fff' }]}>Desativar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={confirmPlacaVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { alignItems: 'center' }]}>
+            <Text style={[styles.modalTitle, { marginBottom: 10, color: '#ff4444' }]}>Remover Placa</Text>
+            <Text style={styles.avisoMessageText}>
+              Deseja remover a placa <Text style={{ color: '#fff', fontWeight: 'bold' }}>{placaParaExcluir?.placa}</Text> deste usuário?
+            </Text>
+
+            <View style={styles.modalButtonsDuplos}>
+              <TouchableOpacity style={[styles.avisoOkBtn, { flex: 1, marginRight: 10, backgroundColor: '#333' }]} onPress={() => setConfirmPlacaVisible(false)}>
+                <Text style={[styles.avisoOkText, { color: '#fff' }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.avisoOkBtn, { flex: 1, backgroundColor: '#ff4444' }]} onPress={executarExclusaoPlaca}>
+                <Text style={[styles.avisoOkText, { color: '#fff' }]}>Remover</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -533,6 +691,56 @@ const styles = StyleSheet.create({
   },
   bold: {
     color: '#fff',
+    fontWeight: 'bold',
+  },
+  placasContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginBottom: 15,
+  },
+  placaBadge: {
+    backgroundColor: '#333',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#D9FF00',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  placaText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  btnRemoverPlaca: {
+    marginLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addPlacaContainer: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 10,
+  },
+  inputPlaca: {
+    flex: 1,
+    backgroundColor: '#000',
+    color: '#fff',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    borderRadius: 10,
+    fontSize: 14,
+  },
+  btnSalvarPlaca: {
+    backgroundColor: '#D9FF00',
+    paddingHorizontal: 20,
+    justifyContent: 'center',
+    borderRadius: 10,
+  },
+  btnSalvarPlacaText: {
+    color: '#000',
     fontWeight: 'bold',
   },
   subTituloInfracoes: {

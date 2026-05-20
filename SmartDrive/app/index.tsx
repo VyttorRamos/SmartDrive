@@ -1,4 +1,4 @@
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Image } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Modal, Image, KeyboardAvoidingView, Platform, ScrollView, TouchableWithoutFeedback, Keyboard } from "react-native";
 import { useState } from "react";
 import { useRouter } from "expo-router";
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,51 +53,58 @@ export default function Login() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Image
-          source={require('../assets/images/logo_smartdrive.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-      </View>
-
-      <View style={styles.content}>
-        <Text style={styles.subtitulo}>Olá, acesse sua conta!</Text>
-
-        <TextInput
-          placeholder="Email"
-          placeholderTextColor="#94a3b8"
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-        />
-
-        <View style={styles.passwordContainer}>
-          <TextInput
-            placeholder="Senha"
-            placeholderTextColor="#94a3b8"
-            secureTextEntry={!showPassword}
-            style={styles.passwordInput}
-            value={senha}
-            onChangeText={setSenha}
-          />
-          <TouchableOpacity
-            onPress={() => setShowPassword(!showPassword)}
-            style={styles.eyeIcon}
-          >
-            <Ionicons
-              name={showPassword ? "eye-off" : "eye"}
-              size={24}
-              color="#94a3b8"
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+      style={styles.container}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <Image
+              source={require('../assets/images/logo_smartdrive.png')}
+              style={styles.logo}
+              resizeMode="contain"
             />
-          </TouchableOpacity>
-        </View>
+          </View>
 
-        <TouchableOpacity style={styles.botao} onPress={handleLogin}>
-          <Text style={styles.botaoTexto}>Login</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.content}>
+            <Text style={styles.subtitulo}>Olá, acesse sua conta!</Text>
+
+            <TextInput
+              placeholder="Email"
+              placeholderTextColor="#94a3b8"
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+            />
+
+            <View style={styles.passwordContainer}>
+              <TextInput
+                placeholder="Senha"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry={!showPassword}
+                style={styles.passwordInput}
+                value={senha}
+                onChangeText={setSenha}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={24}
+                  color="#94a3b8"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity style={styles.botao} onPress={handleLogin}>
+              <Text style={styles.botaoTexto}>Login</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </TouchableWithoutFeedback>
 
       <Modal
         animationType="fade"
@@ -118,7 +125,7 @@ export default function Login() {
           </View>
         </View>
       </Modal>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -126,17 +133,20 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000000",
+  },
+  scrollContainer: {
+    flexGrow: 1,
     paddingHorizontal: 25,
+    paddingBottom: 40,
   },
   header: {
-    paddingTop: 40,
+    paddingTop: 80,
     paddingBottom: 20,
     alignItems: "flex-start",
   },
   content: {
     flex: 1,
     justifyContent: "center",
-    marginTop: -60,
   },
   logo: {
     width: 200,
@@ -147,7 +157,7 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 28,
     fontWeight: "bold",
-    marginBottom: 105,
+    marginBottom: 40,
     textAlign: "left",
   },
   input: {
@@ -162,7 +172,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#1e1e1e",
     borderRadius: 25,
-    marginBottom: 15,
+    marginBottom: 25,
     paddingHorizontal: 15,
   },
   passwordInput: {

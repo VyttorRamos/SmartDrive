@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, ActivityIndicator, Image } from "react-native";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Header from "@/components/Header";
 import { API_URL } from "@/constants/api";
@@ -23,6 +23,23 @@ export default function Perfil() {
     const [avisoTitle, setAvisoTitle] = useState("");
     const [avisoMessage, setAvisoMessage] = useState("");
     const [modalPointsVisible, setModalPointsVisible] = useState(false);
+
+    const [ocultarMenu, setOcultarMenu] = useState(false);
+    const ultimoScrollY = useRef(0);
+
+    const rastrearScroll = (event: any) => {
+        const scrollAtual = event.nativeEvent.contentOffset.y;
+        if (scrollAtual <= 0) {
+            setOcultarMenu(false);
+            ultimoScrollY.current = scrollAtual;
+            return;
+        }
+        const diferenca = scrollAtual - ultimoScrollY.current;
+        if (Math.abs(diferenca) > 20) {
+            setOcultarMenu(diferenca > 0);
+            ultimoScrollY.current = scrollAtual;
+        }
+    };
 
     function mostrarAviso(titulo: string, mensagem: string) {
         setAvisoTitle(titulo);
@@ -80,9 +97,14 @@ export default function Perfil() {
 
     return (
         <View style={styles.screen}>
-            <Header />
+            <Header ocultar={ocultarMenu} />
 
-            <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={styles.container} 
+                showsVerticalScrollIndicator={false}
+                onScroll={rastrearScroll}
+                scrollEventThrottle={16}
+            >
 
                 <View style={styles.header}>
                     <View style={styles.profileInfo}>
@@ -202,320 +224,320 @@ export default function Perfil() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: "#000000",
-  },
+    screen: {
+        flex: 1,
+        backgroundColor: "#000000",
+    },
 
-  container: {
-    padding: 20,
-    paddingTop: 40,
-    paddingBottom: 120,
-  },
+    container: {
+        padding: 20,
+        paddingTop: 40,
+        paddingBottom: 120,
+    },
 
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 30,
-  },
+    header: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 30,
+    },
 
-  profileInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+    profileInfo: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
 
-  nome: {
-    color: "#fff",
-    fontSize: 22,
-    fontWeight: "bold",
-  },
+    nome: {
+        color: "#fff",
+        fontSize: 22,
+        fontWeight: "bold",
+    },
 
-  notificationBtn: {
-    position: "relative",
-  },
+    notificationBtn: {
+        position: "relative",
+    },
 
-  notificationBadge: {
-    position: "absolute",
-    top: -3,
-    right: -3,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: "#D9FF00",
-    borderWidth: 2,
-    borderColor: "#000000",
-  },
+    notificationBadge: {
+        position: "absolute",
+        top: -3,
+        right: -3,
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: "#D9FF00",
+        borderWidth: 2,
+        borderColor: "#000000",
+    },
 
-  topCard: {
-    backgroundColor: "#D9FF00",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-  },
+    topCard: {
+        backgroundColor: "#D9FF00",
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 20,
+    },
 
-  topCardTitle: {
-    color: "#000000",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
+    topCardTitle: {
+        color: "#000000",
+        fontSize: 16,
+        fontWeight: "bold",
+        marginBottom: 15,
+    },
 
-  pointsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
+    pointsRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        marginBottom: 15,
+    },
 
-  pointsValue: {
-    color: "#000000",
-    fontSize: 32,
-    fontWeight: "bold",
-  },
+    pointsValue: {
+        color: "#000000",
+        fontSize: 32,
+        fontWeight: "bold",
+    },
 
-  pointsTotal: {
-    color: "#000000",
-    fontSize: 16,
-    marginLeft: 5,
-  },
+    pointsTotal: {
+        color: "#000000",
+        fontSize: 16,
+        marginLeft: 5,
+    },
 
-  topCardIconBtn: {
-    marginLeft: "auto",
-  },
+    topCardIconBtn: {
+        marginLeft: "auto",
+    },
 
-  topCardSub: {
-    color: "#000000",
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 5,
-  },
+    topCardSub: {
+        color: "#000000",
+        fontSize: 24,
+        fontWeight: "bold",
+        marginBottom: 5,
+    },
 
-  topCardTime: {
-    color: "#000000",
-    fontSize: 12,
-  },
+    topCardTime: {
+        color: "#000000",
+        fontSize: 12,
+    },
 
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    marginBottom: 20,
-  },
+    grid: {
+        flexDirection: "row",
+        flexWrap: "wrap",
+        justifyContent: "space-between",
+        marginBottom: 20,
+    },
 
-  gridCard: {
-    backgroundColor: "#1e1e1e",
-    borderRadius: 20,
-    width: "48%",
-    padding: 20,
-    marginBottom: 15,
-  },
+    gridCard: {
+        backgroundColor: "#1e1e1e",
+        borderRadius: 20,
+        width: "48%",
+        padding: 20,
+        marginBottom: 15,
+    },
 
-  gridIcon: {
-    marginBottom: 10,
-  },
+    gridIcon: {
+        marginBottom: 10,
+    },
 
-  gridValue: {
-    color: "#fff",
-    fontSize: 32,
-    fontWeight: "bold",
-  },
+    gridValue: {
+        color: "#fff",
+        fontSize: 32,
+        fontWeight: "bold",
+    },
 
-  gridLabel: {
-    color: "#94a3b8",
-    fontSize: 13,
-    marginTop: 5,
-  },
+    gridLabel: {
+        color: "#94a3b8",
+        fontSize: 13,
+        marginTop: 5,
+    },
 
-  recentSection: {
-    marginBottom: 20,
-  },
+    recentSection: {
+        marginBottom: 20,
+    },
 
-  recentTitle: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 15,
-  },
+    recentTitle: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
+        marginBottom: 15,
+    },
 
-  recentCard: {
-    backgroundColor: "#1e1e1e",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 15,
-  },
+    recentCard: {
+        backgroundColor: "#1e1e1e",
+        borderRadius: 20,
+        padding: 20,
+        marginBottom: 15,
+    },
 
-  recentCardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 10,
-  },
+    recentCardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 10,
+    },
 
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
-  },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+    },
 
-  statusText: {
-    fontWeight: "bold",
-    fontSize: 14,
-  },
+    statusText: {
+        fontWeight: "bold",
+        fontSize: 14,
+    },
 
-  fineDate: {
-    color: "#94a3b8",
-    fontSize: 12,
-  },
+    fineDate: {
+        color: "#94a3b8",
+        fontSize: 12,
+    },
 
-  fineType: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 10,
-  },
+    fineType: {
+        color: "#fff",
+        fontSize: 16,
+        fontWeight: "bold",
+        marginBottom: 10,
+    },
 
-  fineLocation: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
+    fineLocation: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
 
-  locationText: {
-    color: "#94a3b8",
-    fontSize: 14,
-    marginLeft: 5,
-  },
+    locationText: {
+        color: "#94a3b8",
+        fontSize: 14,
+        marginLeft: 5,
+    },
 
-  safetyBtn: {
-    backgroundColor: "#D9FF00",
-    padding: 16,
-    borderRadius: 25,
-    alignItems: "center",
-    marginBottom: 15,
-  },
+    safetyBtn: {
+        backgroundColor: "#D9FF00",
+        padding: 16,
+        borderRadius: 25,
+        alignItems: "center",
+        marginBottom: 15,
+    },
 
-  safetyBtnText: {
-    color: "#000000",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+    safetyBtnText: {
+        color: "#000000",
+        fontWeight: "bold",
+        fontSize: 16,
+    },
 
-  faqBtn: {
-    backgroundColor: "#333",
-    padding: 16,
-    borderRadius: 25,
-    alignItems: "center",
-  },
+    faqBtn: {
+        backgroundColor: "#333",
+        padding: 16,
+        borderRadius: 25,
+        alignItems: "center",
+    },
 
-  faqBtnText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+    faqBtnText: {
+        color: "#fff",
+        fontWeight: "bold",
+        fontSize: 16,
+    },
 
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.7)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
 
-  modalContentPoints: {
-    width: "85%",
-    backgroundColor: "#1e1e1e",
-    padding: 20,
-    borderRadius: 20,
-    alignItems: "center",
-  },
+    modalContentPoints: {
+        width: "85%",
+        backgroundColor: "#1e1e1e",
+        padding: 20,
+        borderRadius: 20,
+        alignItems: "center",
+    },
 
-  modalHeaderPoints: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    marginBottom: 20,
-  },
+    modalHeaderPoints: {
+        flexDirection: "row",
+        alignItems: "center",
+        width: "100%",
+        marginBottom: 20,
+    },
 
-  modalTitlePoints: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "bold",
-    marginLeft: 15,
-    flex: 1,
-  },
+    modalTitlePoints: {
+        color: "#fff",
+        fontSize: 20,
+        fontWeight: "bold",
+        marginLeft: 15,
+        flex: 1,
+    },
 
-  pointsList: {
-    width: "100%",
-    marginBottom: 20,
-  },
+    pointsList: {
+        width: "100%",
+        marginBottom: 20,
+    },
 
-  pointsItem: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#333",
-    paddingVertical: 10,
-  },
+    pointsItem: {
+        borderBottomWidth: 1,
+        borderBottomColor: "#333",
+        paddingVertical: 10,
+    },
 
-  pointsLevel: {
-    color: "#94a3b8",
-    fontSize: 16,
-    lineHeight: 22,
-    textAlign: "center",
-  },
+    pointsLevel: {
+        color: "#94a3b8",
+        fontSize: 16,
+        lineHeight: 22,
+        textAlign: "center",
+    },
 
-  modalButtonsDuplos: {
-    flexDirection: "row",
-    width: "100%",
-    justifyContent: "center",
-  },
+    modalButtonsDuplos: {
+        flexDirection: "row",
+        width: "100%",
+        justifyContent: "center",
+    },
 
-  btnModalClose: {
-    backgroundColor: "#D9FF00",
-    padding: 16,
-    borderRadius: 25,
-    alignItems: "center",
-    width: "100%",
-  },
+    btnModalClose: {
+        backgroundColor: "#D9FF00",
+        padding: 16,
+        borderRadius: 25,
+        alignItems: "center",
+        width: "100%",
+    },
 
-  btnTextClose: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+    btnTextClose: {
+        color: "#00",
+        fontWeight: "bold",
+        fontSize: 16,
+    },
 
-  modalContentAviso: {
-    width: "85%",
-    backgroundColor: "#1e1e1e",
-    padding: 20,
-    borderRadius: 20,
-    alignItems: "center",
-  },
+    modalContentAviso: {
+        width: "85%",
+        backgroundColor: "#1e1e1e",
+        padding: 20,
+        borderRadius: 20,
+        alignItems: "center",
+    },
 
-  modalTitleAviso: {
-    color: "#fff",
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 10,
-    textAlign: "center",
-  },
+    modalTitleAviso: {
+        color: "#fff",
+        fontSize: 18,
+        fontWeight: "bold",
+        marginBottom: 10,
+        textAlign: "center",
+    },
 
-  avisoMessageText: {
-    fontSize: 16,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginBottom: 20,
-    lineHeight: 22,
-  },
+    avisoMessageText: {
+        fontSize: 16,
+        color: "#94a3b8",
+        textAlign: "center",
+        marginBottom: 20,
+        lineHeight: 22,
+    },
 
-  avisoOkBtn: {
-    backgroundColor: "#fff",
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 10,
-    alignItems: "center",
-    width: "100%",
-  },
+    avisoOkBtn: {
+        backgroundColor: "#fff",
+        paddingVertical: 12,
+        paddingHorizontal: 40,
+        borderRadius: 10,
+        alignItems: "center",
+        width: "100%",
+    },
 
-  avisoOkText: {
-    color: "#000",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
+    avisoOkText: {
+        color: "#000",
+        fontWeight: "bold",
+        fontSize: 16,
+    },
 });

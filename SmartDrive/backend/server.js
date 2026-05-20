@@ -9,6 +9,7 @@ app.use(cors());
 app.use(express.json());
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
 //reconhecer imagem
 const multer = require("multer");
 const fs = require("fs");
@@ -32,7 +33,6 @@ db.connect(err => {
     console.log("MySQL conectado");
   }
 });
-
 
 //login
 app.post("/login", (req, res) => {
@@ -156,7 +156,6 @@ app.post("/refresh", (req, res) => {
   });
 });
 
-
 //Salva infração
 app.post("/infracao", (req, res) => {
   const { placa, velocidade } = req.body;
@@ -166,12 +165,10 @@ app.post("/infracao", (req, res) => {
     [placa, velocidade],
     (err, result) => {
       if (err) return res.status(500).send(err);
-
       res.send({ success: true });
     }
   );
 });
-
 
 //Lista infrações
 app.get("/infracoes", (req, res) => {
@@ -200,7 +197,6 @@ app.put("/usuarios/:id/senha", (req, res) => {
   const { id } = req.params;
   const { senhaAtual, novaSenha } = req.body;
 
-  //verifica se a senha atual está correta
   db.query("SELECT senha FROM usuarios WHERE id = ?", [id], (err, results) => {
     if (err) return res.status(500).send({ success: false, message: "Erro no servidor" });
     if (results.length === 0) return res.status(404).send({ success: false, message: "Usuário não encontrado" });
@@ -210,7 +206,6 @@ app.put("/usuarios/:id/senha", (req, res) => {
       return res.status(400).send({ success: false, message: "A senha atual está incorreta." });
     }
 
-    // se a senha atual for igual a do banco ele salva a nova
     db.query("UPDATE usuarios SET senha = ? WHERE id = ?", [novaSenha, id], (err, updateResult) => {
       if (err) return res.status(500).send({ success: false, message: "Erro ao atualizar senha" });
       res.send({ success: true, message: "Senha atualizada com sucesso" });
@@ -222,13 +217,53 @@ app.put("/usuarios/:id/senha", (req, res) => {
 app.put("/usuarios/:id/notificacoes", (req, res) => {
   const { id } = req.params;
   const { push, email } = req.body;
-
-  //coalesce serve para que se só um for enviado ele continua com o que já estava no outro
   const query = "UPDATE usuarios SET notificacao_push = COALESCE(?, notificacao_push), notificacao_email = COALESCE(?, notificacao_email) WHERE id = ?";
 
   db.query(query, [push, email, id], (err, result) => {
     if (err) return res.status(500).send({ success: false, message: "Erro ao salvar preferências" });
     res.send({ success: true });
+  });
+});
+
+// Buscar veículos ATIVOS de um usuário
+app.get("/usuarios/:id/veiculos", (req, res) => {
+  const { id } = req.params;
+  // Agora só traz as placas que estão ativas
+  db.query("SELECT * FROM veiculos WHERE usuario_id = ? AND ativo = 1", [id], (err, results) => {
+    if (err) return res.status(500).send(err);
+    res.send(results);
+  });
+});
+
+// Cadastrar nova placa para um usuário
+app.post("/veiculos", (req, res) => {
+  const { usuario_id, placa } = req.body;
+
+  if (!usuario_id || !placa) {
+    return res.status(400).send({ success: false, message: "Dados incompletos" });
+  }
+
+  db.query(
+    "INSERT INTO veiculos (usuario_id, placa) VALUES (?, ?)",
+    [usuario_id, placa.toUpperCase()],
+    (err, result) => {
+      if (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+          return res.status(400).send({ success: false, message: "Esta placa já está cadastrada." });
+        }
+        return res.status(500).send({ success: false, message: "Erro ao cadastrar placa." });
+      }
+      res.send({ success: true, message: "Placa vinculada com sucesso!" });
+    }
+  );
+});
+
+// inativa placa
+app.put("/veiculos/:id/inativar", (req, res) => {
+  const { id } = req.params;
+  db.query("UPDATE veiculos SET ativo = 0 WHERE id = ?", [id], (err, result) => {
+    if (err) return res.status(500).send({ success: false, message: "Erro ao remover placa" });
+    res.send({ success: true, message: "Placa removida com sucesso" });
   });
 });
 
@@ -245,7 +280,6 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
     const formData = new FormData();
     formData.append("upload", fs.createReadStream(req.file.path));
 
-    //token do platerecognizer
     const TOKEN_IA = "a4193ee1900505a8d41ca6398535777a33826eb4";
 
     const aiResponse = await axios.post(
@@ -271,7 +305,7 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
       SELECT v.id AS veiculo_id, v.placa, u.id AS usuario_id, u.nome 
       FROM veiculos v 
       JOIN usuarios u ON v.usuario_id = u.id 
-      WHERE v.placa = ? AND u.ativo = 1
+      WHERE v.placa = ? AND u.ativo = 1 AND v.ativo = 1
     `;
 
     db.query(queryBusca, [placaLida], (err, results) => {
@@ -284,7 +318,6 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
       const statusRegistro = carroEncontrado ? "Cadastrada" : "Não Cadastrada";
 
       if (velocidadeAtual > limiteVelocidade) {
-
         const queryRegistro = `INSERT INTO registros (velocidade, placa_detectada) VALUES (?, ?)`;
 
         db.query(queryRegistro, [velocidadeAtual, placaLida], (errReg, resultReg) => {
@@ -294,7 +327,6 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
           }
 
           const registroId = resultReg.insertId;
-
           const queryInfracao = `
             INSERT INTO infracoes (registro_id, usuario_id, veiculo_id, velocidade, limite, status) 
             VALUES (?, ?, ?, ?, ?, 'pendente')
@@ -302,23 +334,12 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
 
           db.query(queryInfracao, [registroId, usuarioId, veiculoId, velocidadeAtual, limiteVelocidade], (errInfra) => {
             if (errInfra) console.log("Erro ao salvar infração:", errInfra);
-
-            return res.send({
-              success: true,
-              placa: placaLida,
-              status: statusRegistro,
-              proprietario: proprietario
-            });
+            return res.send({ success: true, placa: placaLida, status: statusRegistro, proprietario: proprietario });
           });
         });
 
       } else {
-        return res.send({
-          success: true,
-          placa: placaLida,
-          status: statusRegistro,
-          proprietario: proprietario
-        });
+        return res.send({ success: true, placa: placaLida, status: statusRegistro, proprietario: proprietario });
       }
     });
 
@@ -329,7 +350,6 @@ app.post("/reconhecer-placa", upload.single("imagem"), async (req, res) => {
     if (error.response && error.response.status === 403) {
       return res.status(403).send({ success: false, message: "Acesso negado pela IA. O Token configurado no servidor é inválido ou expirou." });
     }
-
     res.status(500).send({ success: false, message: "Falha ao processar a imagem." });
   }
 });

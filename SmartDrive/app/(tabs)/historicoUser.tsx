@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal } from "react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -33,6 +33,23 @@ export default function MeuHistorico() {
 
   const [stats, setStats] = useState({ passagens: 0, infracoes: 0, media: 0 });
 
+  const [ocultarMenu, setOcultarMenu] = useState(false);
+  const ultimoScrollY = useRef(0);
+
+  const rastrearScroll = (event: any) => {
+    const scrollAtual = event.nativeEvent.contentOffset.y;
+    if (scrollAtual <= 0) {
+      setOcultarMenu(false);
+      ultimoScrollY.current = scrollAtual;
+      return;
+    }
+    const diferenca = scrollAtual - ultimoScrollY.current;
+    if (Math.abs(diferenca) > 20) {
+      setOcultarMenu(diferenca > 0);
+      ultimoScrollY.current = scrollAtual;
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       fetchMeuHistorico();
@@ -47,7 +64,6 @@ export default function MeuHistorico() {
 
   async function fetchMeuHistorico() {
     try {
-      // Pega o usuário logado no momento
       const userData = await AsyncStorage.getItem("user");
       if (!userData) return;
       const parsedUser = JSON.parse(userData);
@@ -55,7 +71,6 @@ export default function MeuHistorico() {
       const response = await fetch(`${API_URL}/infracoes`);
       const data = await response.json();
       
-      // Filtra para mostrar APENAS o histórico do usuário logado
       const minhasPassagens = data.filter((item: Infracao) => item.usuario_id === parsedUser.id);
       
       setHistorico(minhasPassagens);
@@ -187,7 +202,7 @@ export default function MeuHistorico() {
 
   return (
     <View style={styles.screen}>
-      <Header />
+      <Header ocultar={ocultarMenu} />
       
       <View style={styles.container}>
         
@@ -223,6 +238,8 @@ export default function MeuHistorico() {
             renderItem={renderItem}
             showsVerticalScrollIndicator={true}
             contentContainerStyle={styles.listContent}
+            onScroll={rastrearScroll}
+            scrollEventThrottle={16}
           />
         </View>
 
@@ -299,7 +316,7 @@ const styles = StyleSheet.create({
   statLabel: { color: '#ccc', fontSize: 14 },
   statValue: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   listWrapper: { flex: 1, backgroundColor: '#1a1a1a', borderRadius: 20, marginBottom: 20, paddingHorizontal: 5 },
-  listContent: { padding: 15 },
+  listContent: { padding: 15, paddingBottom: 100 },
   listItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#333' },
   listItemText: { color: '#fff', fontSize: 14 },
   boldText: { fontWeight: 'bold' },

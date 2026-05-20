@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router, Slot } from "expo-router";
+import { router, Stack } from "expo-router";
 import { View, ActivityIndicator, Text } from "react-native";
-
 
 export default function Layout() {
   const [loading, setLoading] = useState(true);
@@ -47,5 +46,16 @@ export default function Layout() {
       </View>
     );
   }
-  return <Slot />;
+  
+  return (
+    <View style={{ flex: 1, backgroundColor: "#000000" }}>
+      <Stack 
+        screenOptions={{ 
+          headerShown: false, 
+          animation: 'fade',
+          contentStyle: { backgroundColor: '#000000' }
+        }} 
+      />
+    </View>
+  );
 }

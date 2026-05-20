@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, Modal, Platform } from "react-native";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -30,6 +30,23 @@ export default function Historico() {
   const [modalAvisoMessage, setModalAvisoMessage] = useState("");
 
   const [stats, setStats] = useState({ veiculos: 0, infracoes: 0, media: 0 });
+
+  const [ocultarMenu, setOcultarMenu] = useState(false);
+  const ultimoScrollY = useRef(0);
+
+  const rastrearScroll = (event: any) => {
+    const scrollAtual = event.nativeEvent.contentOffset.y;
+    if (scrollAtual <= 0) {
+      setOcultarMenu(false);
+      return;
+    }
+    if (scrollAtual > ultimoScrollY.current + 10) {
+      setOcultarMenu(true); 
+    } else if (scrollAtual < ultimoScrollY.current - 10) {
+      setOcultarMenu(false);
+    }
+    ultimoScrollY.current = scrollAtual;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -176,7 +193,7 @@ export default function Historico() {
 
   return (
     <View style={styles.screen}>
-      <Header />
+      <Header ocultar={ocultarMenu} />
       
       <View style={styles.container}>
         
@@ -212,6 +229,8 @@ export default function Historico() {
             renderItem={renderItem}
             showsVerticalScrollIndicator={true}
             contentContainerStyle={styles.listContent}
+            onScroll={rastrearScroll}
+            scrollEventThrottle={16}
           />
         </View>
 
@@ -348,6 +367,7 @@ const styles = StyleSheet.create({
   },
   listContent: {
     padding: 15,
+    paddingBottom: 100,
   },
   listItem: {
     paddingVertical: 15,

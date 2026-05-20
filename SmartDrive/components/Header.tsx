@@ -1,13 +1,23 @@
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { router, usePathname, Href } from 'expo-router';
-import { CircleUserRound, House, ChartArea, FileText, BookUser, AlertTriangle } from 'lucide-react-native';
-import { useState, useCallback } from 'react';
+import { CircleUserRound, House, ChartArea, FileText, BookUser } from 'lucide-react-native';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
-export default function Header() {
+export default function Header({ ocultar = false }: { ocultar?: boolean }) {
   const nomeRota = usePathname();
   const [tipoUsuario, setTipoUsuario] = useState<string | null>(null);
+
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(translateY, {
+      toValue: ocultar ? 120 : 0, 
+      duration: 300, 
+      useNativeDriver: true,
+    }).start();
+  }, [ocultar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,7 +43,7 @@ export default function Header() {
   const ehAtivo = (route: string) => nomeRota === route;
 
   return (
-    <View style={styles.bottomBar}>
+    <Animated.View style={[styles.bottomBar, { transform: [{ translateY }] }]}>
 
       {tipoUsuario === 'admin' ? (
         <>
@@ -69,7 +79,6 @@ export default function Header() {
         </>
       ) : (
         <>
-
           <TouchableOpacity onPress={() => caminho('/dashUser')} style={styles.iconButton}>
             <View style={[styles.iconWrapper, ehAtivo('/dashUser') && styles.activeIcon]}>
               <House size={24} color={ehAtivo('/dashUser') ? '#000000' : '#ffffff'} />
@@ -87,30 +96,14 @@ export default function Header() {
               <CircleUserRound size={24} color={ehAtivo('/perfil') ? '#000000' : '#ffffff'} />
             </View>
           </TouchableOpacity>
-
         </>
       )}
 
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    backgroundColor: '#000',
-  },
-  top: {
-    height: 60,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    color: '#D9FF00',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   bottomBar: {
     position: 'absolute',
     bottom: 20,
@@ -120,18 +113,22 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     flexDirection: 'row',
     justifyContent: 'space-around',
-    padding: 15,
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 10,
     zIndex: 1000,
     elevation: 10,
   },
   iconButton: {
-    padding: 1
+    padding: 2,
   },
   iconWrapper: {
-    padding: 8,
-    borderRadius: 30,
+    width: 50, 
+    height: 50,
+    borderRadius: 25, 
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden', 
   },
   activeIcon: {
     backgroundColor: '#D9FF00',

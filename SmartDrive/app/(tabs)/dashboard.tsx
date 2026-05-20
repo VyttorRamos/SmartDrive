@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from "react-native";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Header from "@/components/Header";
 import { AlertTriangle, Activity, CarFront, BarChart3, CalendarDays } from 'lucide-react-native';
 import { API_URL } from "@/constants/api";
@@ -24,6 +24,23 @@ export default function Dashboard() {
   const [estatisticas, setEstatisticas] = useState({ veiculosHoje: 0, infracoesHoje: 0, velocidadeMaxima: 0 });
   const [dadosGrafico, setDadosGrafico] = useState<{ dia: string, valor: number }[]>([]);
   const [topInfratores, setTopInfratores] = useState<{ placa: string, total: number, ultimaVelocidade: number }[]>([]);
+
+  const [ocultarMenu, setOcultarMenu] = useState(false);
+  const ultimoScrollY = useRef(0);
+
+  const rastrearScroll = (event: any) => {
+    const scrollAtual = event.nativeEvent.contentOffset.y;
+    if (scrollAtual <= 0) {
+      setOcultarMenu(false);
+      return;
+    }
+    if (scrollAtual > ultimoScrollY.current + 10) {
+      setOcultarMenu(true); 
+    } else if (scrollAtual < ultimoScrollY.current - 10) {
+      setOcultarMenu(false);
+    }
+    ultimoScrollY.current = scrollAtual;
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -130,7 +147,7 @@ export default function Dashboard() {
 
   return (
     <View style={styles.screen}>
-      <Header />
+      <Header ocultar={ocultarMenu} />
       
       {carregando ? (
         <View style={styles.loadingContainer}>
@@ -138,7 +155,12 @@ export default function Dashboard() {
            <Text style={styles.loadingText}>Calculando estatísticas...</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView 
+          contentContainerStyle={styles.container} 
+          showsVerticalScrollIndicator={false}
+          onScroll={rastrearScroll}
+          scrollEventThrottle={16}
+        >
           
           <View style={styles.headerTitleContainer}>
             <View>

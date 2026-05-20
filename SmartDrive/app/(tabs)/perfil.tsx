@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal, TextInput, Switch } from "react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import Header from "@/components/Header";
@@ -24,6 +24,23 @@ export default function Perfil() {
     const [modalAvisoVisible, setModalAvisoVisible] = useState(false);
     const [modalAvisoTitle, setModalAvisoTitle] = useState("");
     const [modalAvisoMessage, setModalAvisoMessage] = useState("");
+
+    const [ocultarMenu, setOcultarMenu] = useState(false);
+    const ultimoScrollY = useRef(0);
+
+    const rastrearScroll = (event: any) => {
+        const scrollAtual = event.nativeEvent.contentOffset.y;
+        if (scrollAtual <= 0) {
+            setOcultarMenu(false);
+            return;
+        }
+        if (scrollAtual > ultimoScrollY.current + 10) {
+            setOcultarMenu(true); 
+        } else if (scrollAtual < ultimoScrollY.current - 10) {
+            setOcultarMenu(false);
+        }
+        ultimoScrollY.current = scrollAtual;
+    };
 
     useEffect(() => {
         async function loadUser() {
@@ -110,7 +127,6 @@ export default function Perfil() {
                 setNovaSenha('');
                 mostrarAviso("Sucesso", "Sua senha foi atualizada com segurança.");
             } else {
-                // erro que veio do backend
                 mostrarAviso("Erro", result.message || "Não foi possível alterar a senha.");
             }
         } catch (error) {
@@ -227,8 +243,13 @@ export default function Perfil() {
 
     return (
         <View style={styles.screen}>
-            <Header />
-            <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+            <Header ocultar={ocultarMenu} />
+            <ScrollView 
+              contentContainerStyle={styles.container} 
+              showsVerticalScrollIndicator={false}
+              onScroll={rastrearScroll}
+              scrollEventThrottle={16}
+            >
 
                 <View style={styles.profileHeader}>
                     <View style={styles.iconContainer}>

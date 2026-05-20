@@ -35,6 +35,23 @@ export default function Home() {
   const [avisoTitle, setAvisoTitle] = useState("");
   const [avisoMessage, setAvisoMessage] = useState("");
 
+  const [ocultarMenu, setOcultarMenu] = useState(false);
+  const ultimoScrollY = useRef(0);
+
+  const rastrearScroll = (event: any) => {
+    const scrollAtual = event.nativeEvent.contentOffset.y;
+    if (scrollAtual <= 0) {
+      setOcultarMenu(false);
+      ultimoScrollY.current = scrollAtual;
+      return;
+    }
+    const diferenca = scrollAtual - ultimoScrollY.current;
+    if (Math.abs(diferenca) > 20) {
+      setOcultarMenu(diferenca > 0);
+      ultimoScrollY.current = scrollAtual;
+    }
+  };
+
   function mostrarAviso(titulo: string, mensagem: string) {
     setAvisoTitle(titulo);
     setAvisoMessage(mensagem);
@@ -212,9 +229,14 @@ export default function Home() {
 
   return (
     <View style={styles.screen}>
-      <Header />
+      <Header ocultar={ocultarMenu} />
 
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        onScroll={rastrearScroll}
+        scrollEventThrottle={16}
+      >
         <View style={styles.top}>
           <Text style={styles.greeting}>Olá, {nome}</Text>
         </View>
