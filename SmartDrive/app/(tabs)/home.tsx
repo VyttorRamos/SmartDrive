@@ -11,7 +11,7 @@ export default function Home() {
   const [velocidade, setVelocidade] = useState(0);
   const [nome, setNome] = useState("Usuário");
 
-  // IPs dos 3 hardwares
+  //IPs dos arduinos
   const [ipCamera, setIpCamera] = useState("192.168.1.9");
   const [ipSensorEntrada, setIpSensorEntrada] = useState("192.168.1.25");
   const [ipSensorSaida, setIpSensorSaida] = useState("192.168.1.61");
@@ -74,7 +74,7 @@ export default function Home() {
     if (isStreaming && ipCamera && !carregandoCaptura) {
       interval = setInterval(() => {
         setPreviewKey(Date.now());
-      }, 1000); 
+      }, 1000);
     }
     return () => clearInterval(interval);
   }, [isStreaming, ipCamera, carregandoCaptura]);
@@ -106,13 +106,10 @@ export default function Home() {
             const tempoSaida = Date.now();
             const deltaTSegundos = (tempoSaida - tempoEntradaRef.current) / 1000;
 
-            // distância física real da maquete
             const distanciaMetros = 0.08;
 
-            // compensa o tamanho do carrinho e o atraso de ping 
             const FATOR_ESCALA = 250;
 
-            // v = d/t (m/s) * 3.6 = km/h
             const velFisicaKmH = (distanciaMetros / deltaTSegundos) * 3.6;
             const velSimulada = velFisicaKmH * FATOR_ESCALA;
 
@@ -127,7 +124,7 @@ export default function Home() {
           }
         } catch (error) { }
 
-      }, 200); 
+      }, 200);
     }
 
     return () => clearInterval(interval);
@@ -171,9 +168,9 @@ export default function Home() {
 
     setCarregandoCaptura(true);
     setIsStreaming(false);
-    tempoEntradaRef.current = null; 
+    tempoEntradaRef.current = null;
 
-    await new Promise(resolve => setTimeout(resolve, 800)); 
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
       const espUrl = `http://${ipCamera}/capture?t=${Date.now()}`;
@@ -231,8 +228,8 @@ export default function Home() {
     <View style={styles.screen}>
       <Header ocultar={ocultarMenu} />
 
-      <ScrollView 
-        contentContainerStyle={styles.container} 
+      <ScrollView
+        contentContainerStyle={styles.container}
         showsVerticalScrollIndicator={false}
         onScroll={rastrearScroll}
         scrollEventThrottle={16}
@@ -263,57 +260,13 @@ export default function Home() {
           </View>
         </View>
 
-        <View style={styles.cardArduino}>
-          <Text style={styles.labelArduino}>IP da Câmera (ESP32-CAM):</Text>
-          <View style={styles.inputIpContainer}>
-            <Ionicons name="videocam" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
-            <TextInput
-              style={styles.inputIp}
-              value={ipCamera}
-              onChangeText={setIpCamera}
-              keyboardType="numeric"
-              placeholder="Ex: 192.168.1.100"
-              placeholderTextColor="#555"
-            />
-          </View>
-
-          <Text style={styles.labelArduino}>IP do Sensor ENTRADA (Laser):</Text>
-          <View style={styles.inputIpContainer}>
-            <Ionicons name="flash" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
-            <TextInput
-              style={styles.inputIp}
-              value={ipSensorEntrada}
-              onChangeText={setIpSensorEntrada}
-              keyboardType="numeric"
-              placeholder="Ex: 192.168.1.101"
-              placeholderTextColor="#555"
-            />
-          </View>
-
-          <Text style={styles.labelArduino}>IP do Sensor SAÍDA (Laser):</Text>
-          <View style={styles.inputIpContainer}>
-            <Ionicons name="exit-outline" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
-            <TextInput
-              style={styles.inputIp}
-              value={ipSensorSaida}
-              onChangeText={setIpSensorSaida}
-              keyboardType="numeric"
-              placeholder="Ex: 192.168.1.102"
-              placeholderTextColor="#555"
-            />
-          </View>
-
-          <TouchableOpacity style={styles.btnCapturaArduino} onPress={() => capturarEEnviarImagem()}>
-            {carregandoCaptura ? (
-              <ActivityIndicator color="#000" />
-            ) : (
-              <>
-                <Ionicons name="camera" size={20} color="#000" style={{ marginRight: 8 }} />
-                <Text style={styles.btnCapturaTexto}>Forçar Leitura Manual</Text>
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.btnAbrirIps}
+          onPress={() => setModalVisible(true)}
+        >
+          <Text style={styles.btnAbrirIpsTexto}>Ips dos hardwares</Text>
+          <Ionicons name="chevron-down" size={22} color="#000" />
+        </TouchableOpacity>
 
         <View style={styles.card}>
           <View style={styles.infoRow}>
@@ -368,6 +321,60 @@ export default function Home() {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={modalVisible} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalIps}>
+            <Text style={styles.modalIpsTitle}>IPs dos hardwares</Text>
+
+            <Text style={styles.labelArduino}>IP da Câmera (ESP32-CAM):</Text>
+            <View style={styles.inputIpContainer}>
+              <Ionicons name="videocam" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.inputIp}
+                value={ipCamera}
+                onChangeText={setIpCamera}
+                keyboardType="numeric"
+                placeholder="Ex: 192.168.1.100"
+                placeholderTextColor="#555"
+              />
+            </View>
+
+            <Text style={styles.labelArduino}>IP do Sensor ENTRADA (Laser):</Text>
+            <View style={styles.inputIpContainer}>
+              <Ionicons name="flash" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.inputIp}
+                value={ipSensorEntrada}
+                onChangeText={setIpSensorEntrada}
+                keyboardType="numeric"
+                placeholder="Ex: 192.168.1.101"
+                placeholderTextColor="#555"
+              />
+            </View>
+
+            <Text style={styles.labelArduino}>IP do Sensor SAÍDA (Laser):</Text>
+            <View style={styles.inputIpContainer}>
+              <Ionicons name="exit-outline" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
+              <TextInput
+                style={styles.inputIp}
+                value={ipSensorSaida}
+                onChangeText={setIpSensorSaida}
+                keyboardType="numeric"
+                placeholder="Ex: 192.168.1.102"
+                placeholderTextColor="#555"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.fecharModalBtn}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.fecharModalTexto}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={avisoVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
@@ -458,6 +465,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
+  btnAbrirIps: {
+    backgroundColor: "#D9FF00",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 20,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  btnAbrirIpsTexto: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
+  },
+
   cardArduino: {
     backgroundColor: "#111",
     borderRadius: 20,
@@ -486,21 +510,6 @@ const styles = StyleSheet.create({
   inputIp: {
     flex: 1,
     color: "#fff",
-    fontSize: 16,
-  },
-
-  btnCapturaArduino: {
-    backgroundColor: "#D9FF00",
-    paddingVertical: 15,
-    borderRadius: 15,
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  btnCapturaTexto: {
-    color: "#000",
-    fontWeight: "bold",
     fontSize: 16,
   },
 
@@ -575,6 +584,37 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
+  },
+
+  modalIps: {
+    width: "90%",
+    backgroundColor: "#111",
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+
+  modalIpsTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+
+  fecharModalBtn: {
+    backgroundColor: "#D9FF00",
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 10,
+  },
+
+  fecharModalTexto: {
+    color: "#000",
+    fontWeight: "bold",
+    fontSize: 16,
   },
 
   modalContentAviso: {
