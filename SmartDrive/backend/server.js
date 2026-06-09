@@ -82,16 +82,31 @@ app.post("/login", (req, res) => {
 //update usuario
 app.put("/usuarios/:id", (req, res) => {
   const { id } = req.params;
-  const { nome, cpf, telefone, email } = req.body;
+  const { nome, cpf, telefone, email, senha } = req.body;
 
-  db.query(
-    "UPDATE usuarios SET nome = ?, cpf = ?, telefone = ?, email = ? WHERE id = ?",
-    [nome, cpf, telefone, email, id],
-    (err, result) => {
-      if (err) return res.status(500).send(err);
-      res.send({ success: true, message: "Atualizado com sucesso" });
+  let campos = [];
+  let valores = [];
+
+  if (nome !== undefined) { campos.push("nome = ?"); valores.push(nome); }
+  if (cpf !== undefined) { campos.push("cpf = ?"); valores.push(cpf); }
+  if (telefone !== undefined) { campos.push("telefone = ?"); valores.push(telefone); }
+  if (email !== undefined) { campos.push("email = ?"); valores.push(email); }
+  if (senha !== undefined) { campos.push("senha = ?"); valores.push(senha); }
+
+  if (campos.length === 0) {
+    return res.status(400).send({ success: false, message: "Nenhum campo para atualizar." });
+  }
+
+  valores.push(id);
+  const sql = `UPDATE usuarios SET ${campos.join(", ")} WHERE id = ?`;
+
+  db.query(sql, valores, (err, result) => {
+    if (err) {
+      console.error("Erro no update:", err);
+      return res.status(500).send({ success: false, message: "Erro ao atualizar" });
     }
-  );
+    res.send({ success: true, message: "Atualizado com sucesso" });
+  });
 });
 
 //desativar usuario
@@ -225,17 +240,16 @@ app.put("/usuarios/:id/notificacoes", (req, res) => {
   });
 });
 
-// Buscar veículos ATIVOS de um usuário
+// buscar veiculos ATIVOS de um usuário
 app.get("/usuarios/:id/veiculos", (req, res) => {
   const { id } = req.params;
-  // Agora só traz as placas que estão ativas
   db.query("SELECT * FROM veiculos WHERE usuario_id = ? AND ativo = 1", [id], (err, results) => {
     if (err) return res.status(500).send(err);
     res.send(results);
   });
 });
 
-// Cadastrar nova placa para um usuário
+// cadastrar nova placa para um usuário
 app.post("/veiculos", (req, res) => {
   const { usuario_id, placa } = req.body;
 

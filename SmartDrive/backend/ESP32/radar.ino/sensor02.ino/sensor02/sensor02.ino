@@ -1,8 +1,8 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
-const char* ssid = "yasmin";
-const char* password = "lobo270906";
+const char* ssid = "Desktop_F4225491";
+const char* password = "Camillo2511";
 
 WebServer server(80);
 
@@ -51,7 +51,7 @@ void loop() {
   int estadoAtual = digitalRead(SENSOR_PIN);
 
   if (estadoAtual == HIGH && ultimoEstadoSensor == LOW) {
-    Serial.println("🚙 CARRO SAINDO");
+    Serial.println("CARRO SAINDO");
     carroSaindo = true;
   }
 

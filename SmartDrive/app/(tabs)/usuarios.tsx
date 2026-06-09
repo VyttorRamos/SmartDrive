@@ -44,6 +44,9 @@ export default function Usuarios() {
 
   const [novaPlaca, setNovaPlaca] = useState('');
   const [veiculosDoUsuario, setVeiculosDoUsuario] = useState<Veiculo[]>([]);
+  
+  // NOVO ESTADO: Controla a digitação da nova senha na edição
+  const [novaSenhaEdit, setNovaSenhaEdit] = useState('');
 
   const [infracoesDoUsuario, setInfracoesDoUsuario] = useState<Infracao[]>([]);
   const [carregandoInfracoes, setCarregandoInfracoes] = useState(false);
@@ -113,6 +116,7 @@ export default function Usuarios() {
     setInfracoesDoUsuario([]);
     setVeiculosDoUsuario([]);
     setNovaPlaca(''); 
+    setNovaSenhaEdit(''); // Limpa o campo de senha ao abrir os detalhes
     setCarregandoInfracoes(true);
     setModalDetalhesVisible(true);
 
@@ -155,6 +159,39 @@ export default function Usuarios() {
         fetchVeiculosUsuario(usuarioSelecionado.id);
       } else {
         mostrarAviso("Erro", result.message || "Não foi possível cadastrar a placa.");
+      }
+    } catch (error) {
+      mostrarAviso("Erro de Conexão", "Falha ao conectar com o servidor.");
+    }
+  }
+
+  // NOVA FUNÇÃO: Envia a nova senha para o servidor
+  async function redefinirSenha() {
+    if (!novaSenhaEdit || novaSenhaEdit.length < 6) {
+      mostrarAviso("Atenção", "A nova senha deve ter pelo menos 6 caracteres.");
+      return;
+    }
+
+    if (!usuarioSelecionado) return;
+
+    try {
+      // Usando o endpoint de atualização de usuário (PUT /usuarios/:id)
+      const response = await fetch(`${API_URL}/usuarios/${usuarioSelecionado.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: usuarioSelecionado!.nome,    
+          email: usuarioSelecionado!.email,    
+          senha: novaSenhaEdit                
+        })
+      });
+
+      if (response.ok) {
+        setNovaSenhaEdit('');
+        mostrarAviso("Sucesso!", "A senha do usuário foi atualizada.");
+      } else {
+        const result = await response.json();
+        mostrarAviso("Erro", result.message || "Não foi possível atualizar a senha.");
       }
     } catch (error) {
       mostrarAviso("Erro de Conexão", "Falha ao conectar com o servidor.");
@@ -403,20 +440,38 @@ export default function Usuarios() {
                 </View>
 
                 {usuarioSelecionado.ativo !== 0 && (
-                  <View style={styles.addPlacaContainer}>
-                    <TextInput
-                      style={styles.inputPlaca}
-                      placeholder="Nova Placa (ex: ABC1234)"
-                      placeholderTextColor="#888"
-                      autoCapitalize="characters"
-                      maxLength={7}
-                      value={novaPlaca}
-                      onChangeText={setNovaPlaca}
-                    />
-                    <TouchableOpacity style={styles.btnSalvarPlaca} onPress={cadastrarPlaca}>
-                      <Text style={styles.btnSalvarPlacaText}>Vincular</Text>
-                    </TouchableOpacity>
-                  </View>
+                  <>
+                    <View style={styles.addPlacaContainer}>
+                      <TextInput
+                        style={styles.inputPlaca}
+                        placeholder="Nova Placa (ex: ABC1234)"
+                        placeholderTextColor="#888"
+                        autoCapitalize="characters"
+                        maxLength={7}
+                        value={novaPlaca}
+                        onChangeText={setNovaPlaca}
+                      />
+                      <TouchableOpacity style={styles.btnSalvarPlaca} onPress={cadastrarPlaca}>
+                        <Text style={styles.btnSalvarPlacaText}>Vincular</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* NOVA SESSÃO: REDEFINIR SENHA */}
+                    <Text style={styles.subTituloInfracoes}>Acesso da Conta:</Text>
+                    <View style={styles.addPlacaContainer}>
+                      <TextInput
+                        style={styles.inputPlaca}
+                        placeholder="Nova Senha"
+                        placeholderTextColor="#888"
+                        secureTextEntry
+                        value={novaSenhaEdit}
+                        onChangeText={setNovaSenhaEdit}
+                      />
+                      <TouchableOpacity style={styles.btnSalvarPlaca} onPress={redefinirSenha}>
+                        <Text style={styles.btnSalvarPlacaText}>Atualizar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
 
                 <Text style={styles.subTituloInfracoes}>Histórico de Infrações:</Text>

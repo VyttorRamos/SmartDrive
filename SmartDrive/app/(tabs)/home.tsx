@@ -12,9 +12,9 @@ export default function Home() {
   const [nome, setNome] = useState("Usuário");
 
   // IPs dos 3 hardwares
-  const [ipCamera, setIpCamera] = useState("172.20.10.10");
-  const [ipSensorEntrada, setIpSensorEntrada] = useState("172.20.10.11");
-  const [ipSensorSaida, setIpSensorSaida] = useState("172.20.10.12");
+  const [ipCamera, setIpCamera] = useState("192.168.1.9");
+  const [ipSensorEntrada, setIpSensorEntrada] = useState("192.168.1.61");
+  const [ipSensorSaida, setIpSensorSaida] = useState("192.168.1.25");
 
   const tempoEntradaRef = useRef<number | null>(null);
 
@@ -71,21 +71,27 @@ export default function Home() {
       interval = setInterval(async () => {
 
         try {
-          const resEntrada = await fetch(`http://${ipSensorEntrada}/status`);
+          const resEntrada = await fetch(`http://${ipSensorEntrada}/status`, {
+            headers: { 'Cache-Control': 'no-store', 'Pragma': 'no-cache' }
+          });
           const dataEntrada = await resEntrada.json();
 
-          if (dataEntrada.entrada && tempoEntradaRef.current === null) {
-            console.log("🚗 CARRO ENTROU - Iniciando cronômetro!");
+          if (dataEntrada.detectado === true && tempoEntradaRef.current === null) {
+            console.log("CARRO ENTROU - Iniciando cronômetro");
             tempoEntradaRef.current = Date.now();
           }
         } catch (error) { }
 
         try {
-          const resSaida = await fetch(`http://${ipSensorSaida}/status`);
+          const resSaida = await fetch(`http://${ipSensorSaida}/status`, {
+            headers: { 'Cache-Control': 'no-store', 'Pragma': 'no-cache' }
+          });
           const dataSaida = await resSaida.json();
 
-          if (dataSaida.saida && tempoEntradaRef.current !== null) {
-            console.log("CARRO SAIU - Calculando velocidade...");
+          const cortouLaserSaida = dataSaida.detectado === true || dataSaida.saida === true;
+
+          if (cortouLaserSaida && tempoEntradaRef.current !== null) {
+            console.log("CARRO SAIU - Calculando velocidade");
             let velCalculada = 0;
 
             const tempoSaida = Date.now();
@@ -99,7 +105,7 @@ export default function Home() {
 
             velCalculada = parseFloat(velSimulada.toFixed(2));
 
-            console.log(`⏱ Tempo: ${deltaTSegundos}s | Vel. Física: ${velFisicaKmH.toFixed(4)} | Vel. Simulada: ${velCalculada} km/h`);
+            console.log(`Tempo: ${deltaTSegundos}s | Vel. Simulada: ${velCalculada} km/h`);
 
             tempoEntradaRef.current = null;
 

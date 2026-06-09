@@ -3,8 +3,8 @@
 #include <WebServer.h>
 
 //wi-fi aqui
-const char* ssid = "yasmin";
-const char* password = "lobo270906";
+const char* ssid = "Desktop_F4225491";
+const char* password = "Camillo2511";
 
 WebServer server(80);
 
