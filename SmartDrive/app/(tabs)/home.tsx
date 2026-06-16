@@ -12,9 +12,9 @@ export default function Home() {
   const [nome, setNome] = useState("Usuário");
 
   // IPs dos 3 hardwares
-  const [ipCamera, setIpCamera] = useState("192.168.1.9");
-  const [ipSensorEntrada, setIpSensorEntrada] = useState("192.168.1.61");
-  const [ipSensorSaida, setIpSensorSaida] = useState("192.168.1.25");
+  const [ipCamera, setIpCamera] = useState("...");
+  const [ipSensorEntrada, setIpSensorEntrada] = useState("...");
+  const [ipSensorSaida, setIpSensorSaida] = useState("...");
 
   const tempoEntradaRef = useRef<number | null>(null);
 
@@ -54,12 +54,15 @@ export default function Home() {
     checkUser();
   }, []);
 
+  // --- LÓGICA DE STREAMING MAIS RÁPIDO (200ms) ---
   useEffect(() => {
     let interval: ReturnType<typeof setInterval>;
     if (isStreaming && ipCamera && !carregandoCaptura) {
+      // 500ms é o "ponto doce" para o ESP32-CAM via Wi-Fi de celular.
+      // Dá tempo de baixar a imagem inteira antes de pedir a próxima.
       interval = setInterval(() => {
         setPreviewKey(Date.now());
-      }, 1000); 
+      }, 500);
     }
     return () => clearInterval(interval);
   }, [isStreaming, ipCamera, carregandoCaptura]);
@@ -97,10 +100,18 @@ export default function Home() {
             const tempoSaida = Date.now();
             const deltaTSegundos = (tempoSaida - tempoEntradaRef.current) / 1000;
 
+            // 8 cm de distância entre os LEDs
             const distanciaMetros = 0.08;
-            const FATOR_ESCALA = 250;
 
+            // Fator de escala do carrinho (Ajuste aqui! 35 é um ótimo meio-termo)
+            // Se estiver batendo mais de 20 km/h muito fácil, diminua para 20.
+            // Se estiver difícil passar de 20 km/h, aumente para 50.
+            const FATOR_ESCALA = 35;
+
+            // Cálculo: (Espaço / Tempo) * 3.6 para converter m/s em km/h
             const velFisicaKmH = (distanciaMetros / deltaTSegundos) * 3.6;
+
+            // Multiplicando a velocidade real do carrinho pela escala do projeto
             const velSimulada = velFisicaKmH * FATOR_ESCALA;
 
             velCalculada = parseFloat(velSimulada.toFixed(2));
@@ -114,7 +125,7 @@ export default function Home() {
           }
         } catch (error) { }
 
-      }, 200); 
+      }, 200);
     }
 
     return () => clearInterval(interval);
@@ -158,9 +169,9 @@ export default function Home() {
 
     setCarregandoCaptura(true);
     setIsStreaming(false);
-    tempoEntradaRef.current = null; 
+    tempoEntradaRef.current = null;
 
-    await new Promise(resolve => setTimeout(resolve, 800)); 
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     try {
       const espUrl = `http://${ipCamera}/capture?t=${Date.now()}`;
@@ -229,6 +240,7 @@ export default function Home() {
               source={{ uri: `http://${ipCamera}/capture?t=${previewKey}` }}
               style={styles.camera}
               resizeMode="cover"
+              fadeDuration={0}
             />
           ) : (
             <View style={styles.permissaoContainer}>
@@ -246,8 +258,8 @@ export default function Home() {
         </View>
 
         <View style={styles.cardArduino}>
-          <TouchableOpacity 
-            style={styles.headerConfig} 
+          <TouchableOpacity
+            style={styles.headerConfig}
             onPress={() => setExpandirConfig(!expandirConfig)}
             activeOpacity={0.7}
           >
@@ -255,10 +267,10 @@ export default function Home() {
               <Ionicons name="construct-outline" size={20} color="#D9FF00" style={{ marginRight: 10 }} />
               <Text style={styles.tituloConfig}>Configurações e IPs</Text>
             </View>
-            <Ionicons 
-              name={expandirConfig ? "chevron-up" : "chevron-down"} 
-              size={24} 
-              color="#D9FF00" 
+            <Ionicons
+              name={expandirConfig ? "chevron-up" : "chevron-down"}
+              size={24}
+              color="#D9FF00"
             />
           </TouchableOpacity>
 
